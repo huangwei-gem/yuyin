@@ -1,94 +1,267 @@
+import { Hono } from 'hono'
 
-import { Hono } from "hono"
-
-const HTML_B64 = "PCFET0NUWVBFIGh0bWw+CjxodG1sIGxhbmc9InpoLUNOIj4KPGhlYWQ+CjxtZXRhIGNoYXJzZXQ9IlVURi04Ij4KPG1ldGEgbmFtZT0idmlld3BvcnQiIGNvbnRlbnQ9IndpZHRoPWRldmljZS13aWR0aCwgaW5pdGlhbC1zY2FsZT0xLjAiPgo8dGl0bGU+QUkg6K+t6Z+z6Z2i6K+VPC90aXRsZT4KPHN0eWxlPgoqe21hcmdpbjowO3BhZGRpbmc6MDtib3gtc2l6aW5nOmJvcmRlci1ib3g7fQpib2R5e2ZvbnQtZmFtaWx5Oi1hcHBsZS1zeXN0ZW0sQmxpbmtNYWNTeXN0ZW1Gb250LCJTZWdvZSBVSSIsUm9ib3RvLHNhbnMtc2VyaWY7YmFja2dyb3VuZDpsaW5lYXItZ3JhZGllbnQoMTM1ZGVnLCMwZjBjMjksIzMwMmI2MywjMjQyNDNlKTtjb2xvcjojZmZmO21pbi1oZWlnaHQ6MTAwdmg7ZGlzcGxheTpmbGV4O2p1c3RpZnktY29udGVudDpjZW50ZXI7YWxpZ24taXRlbXM6Y2VudGVyO30KLmNvbnRhaW5lcnttYXgtd2lkdGg6NzAwcHg7d2lkdGg6MTAwJTtwYWRkaW5nOjI0cHg7bWFyZ2luOjIwcHg7fQouY2FyZHtiYWNrZ3JvdW5kOnJnYmEoMjU1LDI1NSwyNTUsMC4wOCk7YmFja2Ryb3AtZmlsdGVyOmJsdXIoMTJweCk7Ym9yZGVyLXJhZGl1czoyMHB4O3BhZGRpbmc6MzJweDtib3JkZXI6MXB4IHNvbGlkIHJnYmEoMjU1LDI1NSwyNTUsMC4xKTt9Cmgxe3RleHQtYWxpZ246Y2VudGVyO2JhY2tncm91bmQ6bGluZWFyLWdyYWRpZW50KDkwZGVnLCNmNzk3MWUsI2ZmZDIwMCk7LXdlYmtpdC1iYWNrZ3JvdW5kLWNsaXA6dGV4dDstd2Via2l0LXRleHQtZmlsbC1jb2xvcjp0cmFuc3BhcmVudDt9Ci5idG57d2lkdGg6MTAwJTtwYWRkaW5nOjE0cHg7Ym9yZGVyOm5vbmU7Ym9yZGVyLXJhZGl1czoxMnB4O2N1cnNvcjpwb2ludGVyO2JhY2tncm91bmQ6bGluZWFyLWdyYWRpZW50KDkwZGVnLCNmNzk3MWUsI2ZmZDIwMCk7Y29sb3I6IzFhMWEyZTttYXJnaW46OHB4IDA7Zm9udC1zaXplOjE2cHg7fQouYnRuOmhvdmVye3RyYW5zZm9ybTp0cmFuc2xhdGVZKC0xcHgpO30KLmJ0bjpkaXNhYmxlZHtvcGFjaXR5OjAuNTtjdXJzb3I6bm90LWFsbG93ZWQ7fQouYnRuLWRhbmdlcntiYWNrZ3JvdW5kOmxpbmVhci1ncmFkaWVudCg5MGRlZywjZTc0YzNjLCNjMDM5MmIpO2NvbG9yOiNmZmY7fQoucmVjb3JkLWJ0bnt3aWR0aDo4MHB4O2hlaWdodDo4MHB4O2JvcmRlci1yYWRpdXM6NTAlO2JvcmRlcjozcHggc29saWQgI2Y3OTcxZTtiYWNrZ3JvdW5kOnJnYmEoMjQ3LDE1MSwzMCwwLjEpO2N1cnNvcjpwb2ludGVyO21hcmdpbjoxMnB4IGF1dG87ZGlzcGxheTpmbGV4O2FsaWduLWl0ZW1zOmNlbnRlcjtqdXN0aWZ5LWNvbnRlbnQ6Y2VudGVyO30KLnJlY29yZC1idG4ucmVjb3JkaW5ne2JvcmRlci1jb2xvcjojZTc0YzNjO2FuaW1hdGlvbjpwdWxzZSAxLjJzIGluZmluaXRlO30KQGtleWZyYW1lcyBwdWxzZXswJXtib3gtc2hhZG93OjAgMCAwIDAgcmdiYSgyMzEsNzYsNjAsMC40KX03MCV7Ym94LXNoYWRvdzowIDAgMCAyMHB4IHJnYmEoMjMxLDc2LDYwLDApfTEwMCV7Ym94LXNoYWRvdzowIDAgMCAwIHJnYmEoMjMxLDc2LDYwLDApfX0KLnN0ZXB7ZGlzcGxheTpub25lO30uc3RlcC5hY3RpdmV7ZGlzcGxheTpibG9jazt9Ci5wcm9ncmVzc3tkaXNwbGF5OmZsZXg7anVzdGlmeS1jb250ZW50OmNlbnRlcjtnYXA6NHB4O21hcmdpbjoxNnB4IDA7fQouZG90e3dpZHRoOjEwcHg7aGVpZ2h0OjEwcHg7Ym9yZGVyLXJhZGl1czo1MCU7YmFja2dyb3VuZDpyZ2JhKDI1NSwyNTUsMjU1LDAuMTUpO30KLmRvdC5kb25le2JhY2tncm91bmQ6IzI3YWU2MDt9LmRvdC5jdXJyZW50e2JhY2tncm91bmQ6I2Y3OTcxZTt9Ci50b2FzdHtwb3NpdGlvbjpmaXhlZDtib3R0b206MzBweDtsZWZ0OjUwJTt0cmFuc2Zvcm06dHJhbnNsYXRlWCgtNTAlKTtiYWNrZ3JvdW5kOnJnYmEoMCwwLDAsMC44KTtwYWRkaW5nOjEycHggMjRweDtib3JkZXItcmFkaXVzOjEycHg7ei1pbmRleDo5OTk7ZGlzcGxheTpub25lO30KLnRvYXN0LnNob3d7ZGlzcGxheTpibG9jazt9CnNlbGVjdCxpbnB1dHt3aWR0aDoxMDAlO3BhZGRpbmc6MTJweDtib3JkZXItcmFkaXVzOjhweDtiYWNrZ3JvdW5kOnJnYmEoMjU1LDI1NSwyNTUsMC4xKTtjb2xvcjojZmZmO2JvcmRlcjoxcHggc29saWQgcmdiYSgyNTUsMjU1LDI1NSwwLjIpO30KLnF1ZXN0aW9uLWJveHtiYWNrZ3JvdW5kOnJnYmEoMjU1LDI1NSwyNTUsMC4wNSk7cGFkZGluZzoyMHB4O21hcmdpbjoxNnB4IDA7Ym9yZGVyLWxlZnQ6NHB4IHNvbGlkICNmNzk3MWU7fQo8L3N0eWxlPgo8L2hlYWQ+Cjxib2R5Pgo8ZGl2IGNsYXNzPSJjb250YWluZXIiPjxkaXYgY2xhc3M9ImNhcmQiPgo8aDE+JiMxMjc5MDg7IEFJIOivremfs+mdouivlTwvaDE+CjxwIHN0eWxlPSJjb2xvcjpyZ2JhKDI1NSwyNTUsMjU1LDAuNSk7bWFyZ2luLWJvdHRvbToyMHB4OyI+5b2V6Z+z55u05a2Y6aOe5Lmm5aSa57u06KGo5qC8PC9wPgo8ZGl2IGlkPSJzMSIgY2xhc3M9InN0ZXAgYWN0aXZlIj4KICA8c2VsZWN0IGlkPSJwb3MiPjxvcHRpb24gdmFsdWU9ImZyb250ZW5kIj7liY3nq6/lvIDlj5E8L29wdGlvbj48b3B0aW9uIHZhbHVlPSJiYWNrZW5kIj7lkI7nq6/lvIDlj5E8L29wdGlvbj48b3B0aW9uIHZhbHVlPSJnZW5lcmFsIiBzZWxlY3RlZD7pgJrnlKjpnaLor5U8L29wdGlvbj48L3NlbGVjdD4KICA8aW5wdXQgdHlwZT0idGV4dCIgaWQ9Im5hbWUiIHZhbHVlPSJBbm9ueW1vdXMiIHBsYWNlaG9sZGVyPSLlkI3lrZciPgogIDxidXR0b24gY2xhc3M9ImJ0biIgb25jbGljaz0ic3RhcnQoKSI+5byA5aeL6Z2i6K+VPC9idXR0b24+CjwvZGl2Pgo8ZGl2IGlkPSJzMiIgY2xhc3M9InN0ZXAiPgogIDxkaXYgY2xhc3M9InByb2dyZXNzIiBpZD0iZG90cyI+PC9kaXY+CiAgPGRpdiBjbGFzcz0icXVlc3Rpb24tYm94Ij48cCBpZD0icXRleHQiPuWKoOi9veS4rS4uLjwvcD48L2Rpdj4KICA8ZGl2IHN0eWxlPSJ0ZXh0LWFsaWduOmNlbnRlcjsiPgogICAgPGRpdiBjbGFzcz0icmVjb3JkLWJ0biIgaWQ9InJidG4iIG9uY2xpY2s9InJlYygpIj48ZGl2IHN0eWxlPSJ3aWR0aDozMnB4O2hlaWdodDozMnB4O2JhY2tncm91bmQ6I2Y3OTcxZTtib3JkZXItcmFkaXVzOjRweDsiIGlkPSJyaWNvbiI+PC9kaXY+PC9kaXY+CiAgICA8ZGl2IHN0eWxlPSJmb250LXNpemU6MS4yZW07IiBpZD0idGltZXIiPjAwOjAwPC9kaXY+CiAgICA8ZGl2IHN0eWxlPSJjb2xvcjpyZ2JhKDI1NSwyNTUsMjU1LDAuNSk7Zm9udC1zaXplOjAuODVlbTsiIGlkPSJzdGF0dXMiPueCueWHu+W9lemfszwvZGl2PgogIDwvZGl2PgogIDxidXR0b24gY2xhc3M9ImJ0biIgaWQ9Im5leHQiIG9uY2xpY2s9InN1Ym1pdCgpIiBkaXNhYmxlZD7mj5DkuqTlvZXpn7M8L2J1dHRvbj4KICA8YnV0dG9uIGNsYXNzPSJidG4gYnRuLWRhbmdlciIgb25jbGljaz0iZG9uZSgpIj7nu5PmnZ/pnaLor5U8L2J1dHRvbj4KPC9kaXY+CjxkaXYgaWQ9InMzIiBjbGFzcz0ic3RlcCIgc3R5bGU9InRleHQtYWxpZ246Y2VudGVyO3BhZGRpbmc6MjBweDsiPgogIDxkaXYgc3R5bGU9ImZvbnQtc2l6ZTozZW07Ij4mIzEyNzg4MTs8L2Rpdj4KICA8aDI+6Z2i6K+V5a6M5oiQ77yBPC9oMj4KICA8cCBzdHlsZT0iY29sb3I6cmdiYSgyNTUsMjU1LDI1NSwwLjYpOyI+5b2V6Z+z5bey5a2Y5YWl6aOe5LmmPC9wPgogIDxhIGhyZWY9Imh0dHBzOi8veXd3bGFpaTZnYTcuZmVpc2h1LmNuL2Jhc2UvRTlkQ2JMdlh0YXdKdE5zcmh0aWNiRTFwbk9kP3RhYmxlPXRibFJkcElWRVFJaDk3R3MiIHRhcmdldD0iX2JsYW5rIiBzdHlsZT0iY29sb3I6IzZiOGNmZjsiPuafpeeci+mjnuS5puihqOagvDwvYT4KICA8YnV0dG9uIGNsYXNzPSJidG4iIG9uY2xpY2s9ImxvY2F0aW9uLnJlbG9hZCgpIj7lho3mnaXkuIDmrKE8L2J1dHRvbj4KPC9kaXY+CjwvZGl2PjwvZGl2Pgo8ZGl2IGNsYXNzPSJ0b2FzdCIgaWQ9InRvYXN0Ij48L2Rpdj4KPHNjcmlwdD4KdmFyIEFJRD0iY2xpX2FhYjA4M2NmZWJmOGRjZTciLEFTRUM9InZrRXRSR3VscWpOb3lGblh1UVNuamJ6b0t4cXBjS2w4IixCVD0iRTlkQ2JMdlh0YXdKdE5zcmh0aWNiRTFwbk9kIixUST0idGJsMEc0ZDhWTk9HUzE1eiIsVFE9InRibFJkcElWRVFJaDk3R3MiOwp2YXIgUUI9e2Zyb250ZW5kOlsi6K+36Kej6YeK5LiA5LiLUmVhY3TnmoTomZrmi59ET03mmK/lpoLkvZXlt6XkvZznmoTvvJ8iLCLkvaDog73or7Tor7RDU1PnmoTnm5LmqKHlnovmmK/ku4DkuYjlkJfvvJ8iLCLku4DkuYjmmK/pl63ljIXvvJ/or7fkuL7kuIDkuKrlrp7pmYXlupTnlKjnmoTkvovlrZDjgIIiLCLor7fop6Pph4rkuIDkuItFdmVudCBMb29w55qE5py65Yi244CCIiwi5YmN56uv5oCn6IO95LyY5YyW5pyJ5ZOq5Lqb5bi455So55qE5omL5q6177yfIl0sYmFja2VuZDpbIuivt+ino+mHiuS4gOS4i1JFU1RmdWwgQVBJ55qE6K6+6K6h5Y6f5YiZ44CCIiwi5LuA5LmI5piv5pWw5o2u5bqT57Si5byV77yf5a6D5aaC5L2V5o+Q6auY5p+l6K+i5oCn6IO977yfIiwi6K+36Kej6YeK5LiA5LiL5LuA5LmI5piv5b6u5pyN5Yqh5p625p6E44CCIiwi5aaC5L2V6K6+6K6h5LiA5Liq6auY5Y+v55So55qE57O757uf77yfIiwi5LuA5LmI5pivQ0FQ5a6a55CG77yf6K+3566A6KaB6K+05piO44CCIl0sZ2VuZXJhbDpbIuivt+WBmuS4queugOWNleeahOiHquaIkeS7i+e7jeOAgiIsIuS9oOS4uuS7gOS5iOaDs+adpeaIkeS7rOWFrOWPuO+8nyIsIuivt+WIhuS6q+S4gOS4quS9oOino+WGs+i/h+eahOaKgOacr+mavumimOOAgiIsIuS9oOaYr+WmguS9leWkhOeQhuW3peS9nOS4reeahOWOi+WKm+eahO+8nyIsIuS9oOacquadpeS4ieW5tOeahOiBjOS4muinhOWIkuaYr+S7gOS5iO+8nyJdfTsKdmFyIHN0PTAscXM9W10saWlkPSIiLHJlYz1udWxsLGNodW5rcz1bXSxpc1JlYz1mYWxzZSx0aT1udWxsLHNlYz0wOwpmdW5jdGlvbiAkKGkpe3JldHVybiBkb2N1bWVudC5nZXRFbGVtZW50QnlJZChpKX0KZnVuY3Rpb24gdG0obSl7dmFyIGU9JCgidG9hc3QiKTtlLnRleHRDb250ZW50PW07ZS5jbGFzc0xpc3QuYWRkKCJzaG93Iik7c2V0VGltZW91dChmdW5jdGlvbigpe2UuY2xhc3NMaXN0LnJlbW92ZSgic2hvdyIpfSwyMDAwKX0KZnVuY3Rpb24gc3coaWQpe2RvY3VtZW50LnF1ZXJ5U2VsZWN0b3JBbGwoIi5zdGVwIikuZm9yRWFjaChmdW5jdGlvbihzKXtzLmNsYXNzTGlzdC5yZW1vdmUoImFjdGl2ZSIpfSk7JChpZCkuY2xhc3NMaXN0LmFkZCgiYWN0aXZlIil9CmZ1bmN0aW9uIGdpZCgpe3JldHVybiJ4eHh4eHh4eC14eHh4LTR4eHgteXh4eC14eHh4eHh4eHh4eHgiLnJlcGxhY2UoL1t4eV0vZyxmdW5jdGlvbihjKXt2YXIgcj1NYXRoLnJhbmRvbSgpKjE2fDA7cmV0dXJuKGM9PT0ieCI/cjoociYweDMpfDB4OCkudG9TdHJpbmcoMTYpfSl9CnZhciBfdGs9e3Q6IiIsZTowfTsKYXN5bmMgZnVuY3Rpb24gZ3RrKCl7aWYoRGF0ZS5ub3coKTxfdGsuZSlyZXR1cm4gX3RrLnQ7dmFyIHI9YXdhaXQgZmV0Y2goImh0dHBzOi8vb3Blbi5mZWlzaHUuY24vb3Blbi1hcGlzL2F1dGgvdjMvdGVuYW50X2FjY2Vzc190b2tlbi9pbnRlcm5hbCIse21ldGhvZDoiUE9TVCIsaGVhZGVyczp7IkNvbnRlbnQtVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24ifSxib2R5OkpTT04uc3RyaW5naWZ5KHthcHBfaWQ6QUlELGFwcF9zZWNyZXQ6QVNFQ30pfSk7dmFyIGQ9YXdhaXQgci5qc29uKCk7aWYoZC5jb2RlIT09MCl0aHJvdyBFcnJvcihkLm1zZyk7X3RrLnQ9ZC50ZW5hbnRfYWNjZXNzX3Rva2VuO190ay5lPURhdGUubm93KCkrKGQuZXhwaXJlLTYwKSoxMDAwO3JldHVybiBkLnRlbmFudF9hY2Nlc3NfdG9rZW59CmFzeW5jIGZ1bmN0aW9uIHVwbG9hZCh0LGZuLGIpe3ZhciBmPW5ldyBGb3JtRGF0YSgpO2YuYXBwZW5kKCJmaWxlX25hbWUiLGZuKTtmLmFwcGVuZCgicGFyZW50X3R5cGUiLCJiaXRhYmxlX2ZpbGUiKTtmLmFwcGVuZCgicGFyZW50X25vZGUiLEJUKTtmLmFwcGVuZCgic2l6ZSIsYi5zaXplKTtmLmFwcGVuZCgiZmlsZSIsYixmbik7dmFyIHI9YXdhaXQgZmV0Y2goImh0dHBzOi8vb3Blbi5mZWlzaHUuY24vb3Blbi1hcGlzL2RyaXZlL3YxL21lZGlhcy91cGxvYWRfYWxsIix7bWV0aG9kOiJQT1NUIixoZWFkZXJzOntBdXRob3JpemF0aW9uOiJCZWFyZXIgIit0fSxib2R5OmZ9KTt2YXIgZD1hd2FpdCByLmpzb24oKTtpZihkLmNvZGUhPT0wKXRocm93IEVycm9yKGQubXNnKTtyZXR1cm4gZC5kYXRhLmZpbGVfdG9rZW59CmFzeW5jIGZ1bmN0aW9uIGFkZFJlYyh0LHRpLGZkKXt2YXIgcj1hd2FpdCBmZXRjaCgiaHR0cHM6Ly9vcGVuLmZlaXNodS5jbi9vcGVuLWFwaXMvYml0YWJsZS92MS9hcHBzLyIrQlQrIi90YWJsZXMvIit0aSsiL3JlY29yZHMiLHttZXRob2Q6IlBPU1QiLGhlYWRlcnM6e0F1dGhvcml6YXRpb246IkJlYXJlciAiK3QsIkNvbnRlbnQtVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24ifSxib2R5OkpTT04uc3RyaW5naWZ5KHtmaWVsZHM6ZmR9KX0pO3ZhciBkPWF3YWl0IHIuanNvbigpO2lmKGQuY29kZSE9PTApdGhyb3cgRXJyb3IoZC5tc2cpO3JldHVybiBkLmRhdGEucmVjb3JkLnJlY29yZF9pZH0KYXN5bmMgZnVuY3Rpb24gc3RhcnQoKXt2YXIgcD0kKCJwb3MiKS52YWx1ZSxuPSQoIm5hbWUiKS52YWx1ZXx8IkFub255bW91cyI7cXM9UUJbcF18fFFCLmdlbmVyYWw7aWlkPWdpZCgpO3N0PTA7dHJ5e3ZhciB0PWF3YWl0IGd0aygpO2F3YWl0IGFkZFJlYyh0LFRJLHsi6Z2i6K+VSUQiOmlpZCwi5YCZ6YCJ5Lq6IjpuLCLogYzkvY0iOnA9PT0iZnJvbnRlbmQiPyLliY3nq6/lvIDlj5EiOnA9PT0iYmFja2VuZCI/IuWQjuerr+W8gOWPkSI6IumAmueUqOmdouivlSIsIuaAu+mimOaVsCI6cXMubGVuZ3RoLCLnirbmgIEiOiLov5vooYzkuK0iLCLliJvlu7rml7bpl7QiOm5ldyBEYXRlKCkudG9Mb2NhbGVTdHJpbmcoInpoLUNOIix7dGltZVpvbmU6IkFzaWEvU2hhbmdoYWkifSl9KX1jYXRjaChlKXtjb25zb2xlLmVycm9yKGUpfXN3KCJzMiIpO3Nob3dRKCl9CmZ1bmN0aW9uIHNob3dRKCl7aWYoc3Q+PXFzLmxlbmd0aCl7c3coInMzIik7cmV0dXJufSQoInF0ZXh0IikudGV4dENvbnRlbnQ9cXNbc3RdO3JwKCk7cnN0KCk7JCgibmV4dCIpLmRpc2FibGVkPXRydWV9CmZ1bmN0aW9uIHJwKCl7dmFyIGU9JCgiZG90cyIpO2UuaW5uZXJIVE1MPSIiO2Zvcih2YXIgaT0wO2k8cXMubGVuZ3RoO2krKyl7dmFyIGQ9ZG9jdW1lbnQuY3JlYXRlRWxlbWVudCgiZGl2Iik7ZC5jbGFzc05hbWU9ImRvdCI7aWYoaTxzdClkLmNsYXNzTGlzdC5hZGQoImRvbmUiKTtpZihpPT09c3QpZC5jbGFzc0xpc3QuYWRkKCJjdXJyZW50Iik7ZS5hcHBlbmRDaGlsZChkKX19CmFzeW5jIGZ1bmN0aW9uIHJlYygpe2lmKGlzUmVjKXtzdG9wUmVjKCl9ZWxzZXthd2FpdCBzdGFydFJlYygpfX0KYXN5bmMgZnVuY3Rpb24gc3RhcnRSZWMoKXt0cnl7dmFyIHM9YXdhaXQgbmF2aWdhdG9yLm1lZGlhRGV2aWNlcy5nZXRVc2VyTWVkaWEoe2F1ZGlvOnRydWV9KTtyZWM9bmV3IE1lZGlhUmVjb3JkZXIocyx7bWltZVR5cGU6ImF1ZGlvL3dlYm07Y29kZWNzPW9wdXMifSk7Y2h1bmtzPVtdO3JlYy5vbmRhdGFhdmFpbGFibGU9ZnVuY3Rpb24oZSl7aWYoZS5kYXRhLnNpemU+MCljaHVua3MucHVzaChlLmRhdGEpfTtyZWMub25zdG9wPWZ1bmN0aW9uKCl7cy5nZXRUcmFja3MoKS5mb3JFYWNoKGZ1bmN0aW9uKHQpe3Quc3RvcCgpfSk7JCgibmV4dCIpLmRpc2FibGVkPWZhbHNlfTtyZWMuc3RhcnQoKTtpc1JlYz10cnVlOyQoInJidG4iKS5jbGFzc0xpc3QuYWRkKCJyZWNvcmRpbmciKTskKCJzdGF0dXMiKS50ZXh0Q29udGVudD0i5q2j5Zyo5b2V6Z+zLi4uIjtzZWM9MDt1cGRUKCk7dGk9c2V0SW50ZXJ2YWwoZnVuY3Rpb24oKXtzZWMrKzt1cGRUKCl9LDEwMDApfWNhdGNoKGUpe3RtKCLor7flhYHorrjpuqblhYvpo47mnYPpmZAiKX19CmZ1bmN0aW9uIHN0b3BSZWMoKXtpZihyZWMmJnJlYy5zdGF0ZSE9PSJpbmFjdGl2ZSIpcmVjLnN0b3AoKTtpc1JlYz1mYWxzZTskKCJyYnRuIikuY2xhc3NMaXN0LnJlbW92ZSgicmVjb3JkaW5nIik7JCgic3RhdHVzIikudGV4dENvbnRlbnQ9Iuato+WcqOS4iuS8oC4uLiI7Y2xlYXJJbnRlcnZhbCh0aSl9CmZ1bmN0aW9uIHJzdCgpe2lmKHJlYyYmcmVjLnN0YXRlIT09ImluYWN0aXZlIilyZWMuc3RvcCgpO2lzUmVjPWZhbHNlOyQoInJidG4iKS5jbGFzc0xpc3QucmVtb3ZlKCJyZWNvcmRpbmciKTskKCJzdGF0dXMiKS50ZXh0Q29udGVudD0i54K55Ye75b2V6Z+zIjtjbGVhckludGVydmFsKHRpKTtzZWM9MDt1cGRUKCk7Y2h1bmtzPVtdfQpmdW5jdGlvbiB1cGRUKCl7dmFyIG09U3RyaW5nKE1hdGguZmxvb3Ioc2VjLzYwKSkucGFkU3RhcnQoMiwiMCIpO3ZhciBzPVN0cmluZyhzZWMlNjApLnBhZFN0YXJ0KDIsIjAiKTskKCJ0aW1lciIpLnRleHRDb250ZW50PW0rIjoiK3N9CmFzeW5jIGZ1bmN0aW9uIHN1Ym1pdCgpe2lmKGNodW5rcy5sZW5ndGg9PT0wKXt0bSgi6K+35YWI5b2V6Z+zIik7cmV0dXJufXZhciBiPW5ldyBCbG9iKGNodW5rcyx7dHlwZToiYXVkaW8vd2VibSJ9KTtpZihiLnNpemU8MTAwKXt0bSgi5b2V6Z+z5aSq55+tIik7cmV0dXJufSQoIm5leHQiKS5kaXNhYmxlZD10cnVlOyQoInN0YXR1cyIpLnRleHRDb250ZW50PSLkuIrkvKDpo57kuaYuLi4iO3RyeXt2YXIgdD1hd2FpdCBndGsoKTt2YXIgZm49ImludGVydmlldy0iK2lpZCsiLXEiKyhzdCsxKSsiLndlYm0iO3ZhciBmdD1hd2FpdCB1cGxvYWQodCxmbixiKTthd2FpdCBhZGRSZWModCxUUSx7IumdouivlUlEIjppaWQsIumimOebriI6cXNbc3RdLCLpopjlj7ciOlN0cmluZyhzdCsxKSwi5b2V6Z+zIjpmdH0pO3RtKCLlt7Lkv53lrZjliLDpo57kuaYhIik7c3QrKztzaG93USgpfWNhdGNoKGUpe3RtKCLkuIrkvKDlpLHotKUiKTskKCJuZXh0IikuZGlzYWJsZWQ9ZmFsc2V9fQpmdW5jdGlvbiBkb25lKCl7aWYoY29uZmlybSgi56Gu5a6a57uT5p2f77yfIikpc3coInMzIil9Cjwvc2NyaXB0Pgo8L2JvZHk+CjwvaHRtbD4K"
-
-const QB = {
-  frontend: ["请解释一下React的虚拟DOM是如何工作的？","你能说说CSS的盒模型是什么吗？","什么是闭包？请举一个实际应用的例子。","请解释一下Event Loop的机制。","前端性能优化有哪些常用的手段？"],
-  backend: ["请解释一下RESTful API的设计原则。","什么是数据库索引？它如何提高查询性能？","请解释一下什么是微服务架构。","如何设计一个高可用的系统？","什么是CAP定理？请简要说明。"],
-  general: ["请做个简单的自我介绍。","你为什么想来我们公司？","请分享一个你解决过的技术难题。","你是如何处理工作中的压力的？","你未来三年的职业规划是什么？"]
+// Questions bank
+const QUESTIONS = {
+  frontend: [
+    "请解释一下React的虚拟DOM是如何工作的？",
+    "你能说说CSS的盒模型是什么吗？",
+    "什么是闭包？请举一个实际应用的例子。",
+    "请解释一下Event Loop的机制。",
+    "前端性能优化有哪些常用的手段？"
+  ],
+  backend: [
+    "请解释一下RESTful API的设计原则。",
+    "什么是数据库索引？它如何提高查询性能？",
+    "请解释一下什么是微服务架构。",
+    "如何设计一个高可用的系统？",
+    "什么是CAP定理？请简要说明。"
+  ],
+  general: [
+    "请做一个简单的自我介绍。",
+    "你为什么想来我们公司？",
+    "请分享一个你解决过的技术难题。",
+    "你是如何处理工作中的压力的？",
+    "你未来三年的职业规划是什么？"
+  ]
 }
 
-async function gtk(a, s) {
-  var r = await fetch("https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({app_id:a,app_secret:s})})
-  var d = await r.json()
-  return d.tenant_access_token
+// Feishu API helpers
+async function getTenantToken(env) {
+  const resp = await fetch("https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ app_id: env.LARK_APP_ID, app_secret: env.LARK_APP_SECRET })
+  })
+  const data = await resp.json()
+  if (data.code !== 0) throw new Error("Token error: " + JSON.stringify(data))
+  return data.tenant_access_token
 }
 
-async function up(t, fn, buf) {
-  var f = new FormData()
-  f.append("file_name", fn)
-  f.append("parent_type", "bitable_file")
-  f.append("parent_node", "E9dCbLvXtawJtNsrhticbE1pnOd")
-  f.append("size", String(buf.byteLength))
-  f.append("file", new Blob([buf], {type:"audio/webm"}), fn)
-  var r = await fetch("https://open.feishu.cn/open-apis/drive/v1/medias/upload_all", {method:"POST",headers:{Authorization:"Bearer "+t},body:f})
-  var d = await r.json()
-  return d.data.file_token
+async function addRecord(token, baseToken, tableId, fields) {
+  const resp = await fetch("https://open.feishu.cn/open-apis/bitable/v1/apps/" + baseToken + "/tables/" + tableId + "/records", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+    body: JSON.stringify({ fields })
+  })
+  const data = await resp.json()
+  if (data.code !== 0) throw new Error("Add record error: " + JSON.stringify(data))
+  return data.data.record.record_id
 }
 
-async function ar(t, ti, fd) {
-  var r = await fetch("https://open.feishu.cn/open-apis/bitable/v1/apps/E9dCbLvXtawJtNsrhticbE1pnOd/tables/"+ti+"/records", {method:"POST",headers:{Authorization:"Bearer "+t,"Content-Type":"application/json"},body:JSON.stringify({fields:fd})})
-  var d = await r.json()
-  return d.data.record.record_id
+async function uploadAudio(token, baseToken, fileName, audioBuffer) {
+  const formData = new FormData()
+  formData.append("file_name", fileName)
+  formData.append("parent_type", "bitable_file")
+  formData.append("parent_node", baseToken)
+  formData.append("size", String(audioBuffer.byteLength))
+  formData.append("file", new Blob([audioBuffer], { type: "audio/webm" }), fileName)
+  
+  const resp = await fetch("https://open.feishu.cn/open-apis/drive/v1/medias/upload_all", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + token },
+    body: formData
+  })
+  const data = await resp.json()
+  if (data.code !== 0) throw new Error("Upload error: " + JSON.stringify(data))
+  return data.data.file_token
 }
 
-var app = new Hono()
-app.use("/*", async (c, next) => { c.res.headers.set("Access-Control-Allow-Origin", "*"); await next() })
+// HTML template
+function renderHTML() {
+  return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 语音面试</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);color:#fff;min-height:100vh;display:flex;justify-content:center;align-items:center;}
+.container{max-width:700px;width:100%;padding:24px;margin:20px;}
+.card{background:rgba(255,255,255,0.08);backdrop-filter:blur(12px);border-radius:20px;padding:32px;border:1px solid rgba(255,255,255,0.1);}
+h1{text-align:center;background:linear-gradient(90deg,#f7971e,#ffd200);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.btn{width:100%;padding:14px;border:none;border-radius:12px;cursor:pointer;background:linear-gradient(90deg,#f7971e,#ffd200);color:#1a1a2e;margin:8px 0;font-size:16px;font-weight:600;}
+.btn:hover{transform:translateY(-1px);}
+.btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+.btn-danger{background:linear-gradient(90deg,#e74c3c,#c0392b);color:#fff;}
+.record-btn{width:80px;height:80px;border-radius:50%;border:3px solid #f7971e;background:rgba(247,151,30,0.1);cursor:pointer;margin:12px auto;display:flex;align-items:center;justify-content:center;transition:all .3s;}
+.record-btn:hover{border-color:#ffd200;background:rgba(247,151,30,0.2);}
+.record-btn.recording{border-color:#e74c3c;animation:pulse 1.2s infinite;}
+.record-btn.recording #ricon{background:#e74c3c;border-radius:50%;width:24px;height:24px;}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(231,76,60,0.4)}70%{box-shadow:0 0 0 20px rgba(231,76,60,0)}100%{box-shadow:0 0 0 0 rgba(231,76,60,0)}}
+.step{display:none;}.step.active{display:block;}
+.progress{display:flex;justify-content:center;gap:4px;margin:16px 0;}
+.dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.15);}
+.dot.done{background:#27ae60;}.dot.current{background:#f7971e;}
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);padding:12px 24px;border-radius:12px;z-index:999;display:none;backdrop-filter:blur(8px);}
+.toast.show{display:block;}
+select,input{width:100%;padding:12px;border-radius:8px;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2);margin:6px 0;font-size:15px;}
+select option{background:#302b63;color:#fff;}
+.question-box{background:rgba(255,255,255,0.05);padding:20px;margin:16px 0;border-left:4px solid #f7971e;border-radius:0 12px 12px 0;font-size:17px;line-height:1.7;}
+#timer{font-size:2em;font-weight:700;margin:8px 0;}
+.status-text{color:rgba(255,255,255,0.5);font-size:.85em;}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:#f7971e;border-radius:50%;animation:spin .8s linear infinite;margin-right:6px;vertical-align:middle;}
+@keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+<div class="container"><div class="card">
+<h1>&#127908; AI 语音面试</h1>
+<p style="color:rgba(255,255,255,0.5);margin-bottom:20px;">录音直存飞书多维表格</p>
+<div id="s1" class="step active">
+  <label style="color:rgba(255,255,255,0.6);font-size:.9em;">职位类型</label>
+  <select id="pos"><option value="frontend">前端开发</option><option value="backend">后端开发</option><option value="general" selected>通用面试</option></select>
+  <label style="color:rgba(255,255,255,0.6);font-size:.9em;">姓名</label>
+  <input type="text" id="name" value="Anonymous" placeholder="输入姓名">
+  <button class="btn" onclick="startInterview()">开始面试</button>
+</div>
+<div id="s2" class="step">
+  <div class="progress" id="dots"></div>
+  <div class="question-box"><p id="qtext">加载中...</p></div>
+  <div style="text-align:center;">
+    <div class="record-btn" id="rbtn" onclick="toggleRec()"><div id="ricon" style="width:32px;height:32px;background:#f7971e;border-radius:4px;"></div></div>
+    <div id="timer">00:00</div>
+    <div class="status-text" id="status">点击录音</div>
+  </div>
+  <button class="btn" id="nextBtn" onclick="submitAnswer()" disabled>提交录音</button>
+  <button class="btn btn-danger" onclick="endInterview()">结束面试</button>
+</div>
+<div id="s3" class="step" style="text-align:center;padding:20px;">
+  <div style="font-size:3em;">&#127881;</div>
+  <h2>面试完成！</h2>
+  <p style="color:rgba(255,255,255,0.6);margin:12px 0;">录音已存入飞书</p>
+  <a href="https://ywwlaii6ga7.feishu.cn/base/E9dCbLvXtawJtNsrhticbE1pnOd?table=tblRdpIVEQIh97Gs" target="_blank" style="color:#6b8cff;text-decoration:none;">查看飞书表格 &#8599;</a>
+  <br><br>
+  <button class="btn" onclick="location.reload()">再来一次</button>
+</div>
+</div></div>
+<div class="toast" id="toast"></div>
+<script>
+const QUESTIONS = {
+  frontend:["请解释一下React的虚拟DOM是如何工作的？","你能说说CSS的盒模型是什么吗？","什么是闭包？请举一个实际应用的例子。","请解释一下Event Loop的机制。","前端性能优化有哪些常用的手段？"],
+  backend:["请解释一下RESTful API的设计原则。","什么是数据库索引？它如何提高查询性能？","请解释一下什么是微服务架构。","如何设计一个高可用的系统？","什么是CAP定理？请简要说明。"],
+  general:["请做一个简单的自我介绍。","你为什么想来我们公司？","请分享一个你解决过的技术难题。","你是如何处理工作中的压力的？","你未来三年的职业规划是什么？"]
+};
+let step=0,qs=[],iid="",rec=null,chunks=[],isRec=false,ti=null,sec=0;
+function $(id){return document.getElementById(id)}
+function toast(m){var e=$("toast");e.textContent=m;e.classList.add("show");setTimeout(function(){e.classList.remove("show")},3000)}
+function sw(id){document.querySelectorAll(".step").forEach(function(s){s.classList.remove("active")});$(id).classList.add("active")}
+async function startInterview(){
+  const p=$("pos").value,n=$("name").value||"Anonymous";
+  qs=QUESTIONS[p]||QUESTIONS.general;iid=crypto.randomUUID();step=0;
+  sw("s2");showQ();
+  fetch("/api/interviews",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({interviewId:iid,position:p,candidateName:n,totalQuestions:qs.length})});
+}
+function showQ(){
+  if(step>=qs.length){sw("s3");return}
+  $("qtext").textContent=qs[step];renderDots();resetRec();$("nextBtn").disabled=true;
+}
+function renderDots(){
+  var e=$("dots");e.innerHTML="";
+  for(var i=0;i<qs.length;i++){var d=document.createElement("div");d.className="dot";if(i<step)d.classList.add("done");if(i===step)d.classList.add("current");e.appendChild(d)}
+}
+async function toggleRec(){if(isRec){stopRec()}else{await startRec()}}
+async function startRec(){
+  try{
+    var s=await navigator.mediaDevices.getUserMedia({audio:true});
+    chunks=[];rec=new MediaRecorder(s,{mimeType:'audio/webm;codecs=opus'});
+    rec.ondataavailable=function(e){if(e.data.size>0)chunks.push(e.data)};
+    rec.onstop=function(){s.getTracks().forEach(function(t){t.stop()});$("nextBtn").disabled=false};
+    rec.start(250);isRec=true;
+    $("rbtn").classList.add("recording");$("status").textContent="正在录音...";
+    sec=0;updT();ti=setInterval(function(){sec++;updT()},1000);
+  }catch(e){toast("请允许麦克风权限")}
+}
+function stopRec(){
+  if(rec&&rec.state!=="inactive")rec.stop();
+  isRec=false;$("rbtn").classList.remove("recording");$("status").textContent="已停止";clearInterval(ti);
+}
+function resetRec(){
+  if(rec&&rec.state!=="inactive")rec.stop();
+  isRec=false;$("rbtn").classList.remove("recording");$("status").textContent="点击录音";clearInterval(ti);sec=0;updT();chunks=[];
+}
+function updT(){var m=String(Math.floor(sec/60)).padStart(2,"0");var s=String(sec%60).padStart(2,"0");$("timer").textContent=m+":"+s}
+async function submitAnswer(){
+  if(chunks.length===0){toast("请先录音");return}
+  var blob=new Blob(chunks,{type:"audio/webm"});
+  if(blob.size<200){toast("录音太短");return}
+  $("nextBtn").disabled=true;$("status").innerHTML='<span class="spinner"></span>上传飞书...';
+  try{
+    var fd=new FormData();
+    fd.append("audio",blob,"q"+(step+1)+".webm");
+    fd.append("question",qs[step]);fd.append("interviewId",iid);fd.append("questionOrder",String(step+1));
+    var r=await fetch("/api/interviews/"+iid+"/answer",{method:"POST",body:fd});
+    await r.json();
+    toast("已保存到飞书!");step++;showQ();
+  }catch(e){toast("上传失败");$("nextBtn").disabled=false;$("status").textContent="上传失败，重试"}
+}
+function endInterview(){if(confirm("确定结束？")){if(isRec)stopRec();sw("s3")}}
+</script>
+</body>
+</html>`
+}
 
-app.get("/", (c) => c.html(Buffer.from(HTML_B64, "base64").toString()))
+const app = new Hono()
 
-app.get("/api/positions", (c) => c.json({positions: Object.keys(QB).map(k => ({id:k, name:k==="frontend"?"前端开发":k==="backend"?"后端开发":"通用面试"}))}))
+// Serve the HTML page
+app.get("/", (c) => c.html(renderHTML()))
 
+// Health check
+app.get("/api/health", (c) => c.json({ status: "ok" }))
+
+// Create interview record
 app.post("/api/interviews", async (c) => {
-  var b = await c.req.json()
-  var p = b.position||"general", n = b.candidateName||"Anonymous"
-  var qs = QB[p]||QB.general, id = crypto.randomUUID()
   try {
-    var t = await gtk(c.env.AID, c.env.ASEC)
-    await ar(t, c.env.TI, {"面试ID":id,"候选人":n,"职位":p==="frontend"?"前端开发":p==="backend"?"后端开发":"通用面试","总题数":qs.length,"状态":"进行中","创建时间":new Date().toLocaleString("zh-CN",{timeZone:"Asia/Shanghai"})})
-  } catch(e) {}
-  return c.json({interviewId:id, totalQuestions:qs.length, firstQuestion:qs[0], questions:qs})
+    const { interviewId, position, candidateName, totalQuestions } = await c.req.json()
+    const token = await getTenantToken(c.env)
+    await addRecord(token, c.env.LARK_BASE_TOKEN, c.env.LARK_TABLE_ID, {
+      "面试ID": interviewId,
+      "候选人": candidateName || "Anonymous",
+      "职位": position === "frontend" ? "前端开发" : position === "backend" ? "后端开发" : "通用面试",
+      "总题数": totalQuestions || 5,
+      "状态": "进行中",
+      "创建时间": new Date().toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })
+    })
+    return c.json({ success: true })
+  } catch (e) {
+    console.error("Create interview error:", e)
+    return c.json({ success: false, error: e.message })
+  }
 })
 
-var pg = {}
-app.post("/api/interviews/:id/start", async (c) => {
-  var id = c.req.param("id"), b = await c.req.json()
-  pg[id] = {i:0, q:b.questions}
-  return c.json({done:false, qaId:id+"-q0", question:b.questions[0], questionOrder:1})
-})
-
-app.get("/api/interviews/:id/current", (c) => {
-  var id = c.req.param("id"), p = pg[id]
-  if(!p||p.i>=p.q.length) return c.json({done:true})
-  return c.json({done:false, qaId:id+"-q"+p.i, question:p.q[p.i], questionOrder:p.i+1})
-})
-
+// Submit answer with audio
 app.post("/api/interviews/:id/answer", async (c) => {
-  var iid = c.req.param("id")
-  var fd = await c.req.formData()
-  var af = fd.get("audio")
-  var pid = pg[iid]; if(pid) pid.i++
-  var ft = "", ts = ""
   try {
-    var t = await gtk(c.env.AID, c.env.ASEC)
-    var buf = await af.arrayBuffer()
-    ft = await up(t, "interview-"+iid+"-q"+pid.i+".webm", buf)
-    await ar(t, c.env.TQ, {"面试ID":iid,"题目":fd.get("question"),"题号":String(pid.i),"录音":ft})
-    try { var r = await c.env.AI.run("@cf/openai/whisper", {audio:[...new Uint8Array(buf)]}); ts = r.text||"" } catch(e) {}
-  } catch(e) {}
-  return c.json({success:true, fileToken:ft, transcript:ts, done:pid?pid.i>=pid.q.length:false})
-})
+    const iid = c.req.param("id")
+    const formData = await c.req.formData()
+    const audioFile = formData.get("audio")
+    const question = formData.get("question") || ""
+    const questionOrder = formData.get("questionOrder") || "1"
+    
+    if (!audioFile) {
+      return c.json({ success: false, error: "No audio file" })
+    }
 
-app.get("/api/audio/:fileToken", async (c) => {
-  var ft = c.req.param("fileToken")
-  try {
-    var t = await gtk(c.env.AID, c.env.ASEC)
-    var r = await fetch("https://open.feishu.cn/open-apis/drive/v1/medias/"+ft+"/download", {headers:{Authorization:"Bearer "+t}})
-    return new Response(r.body, {headers:{"Content-Type":"audio/webm"}})
-  } catch(e) { return c.json({error:e.message}, 500) }
+    const token = await getTenantToken(c.env)
+    const audioBuffer = await audioFile.arrayBuffer()
+    const fileName = "interview-" + iid + "-q" + questionOrder + ".webm"
+    
+    // Upload audio to Feishu Drive
+    const fileToken = await uploadAudio(token, c.env.LARK_BASE_TOKEN, fileName, audioBuffer)
+    
+    // Add record to QA table
+    await addRecord(token, c.env.LARK_BASE_TOKEN, c.env.LARK_QA_TABLE_ID, {
+      "面试ID": iid,
+      "题目": question,
+      "题号": String(questionOrder),
+      "录音": fileToken
+    })
+    
+    return c.json({ success: true, fileToken })
+  } catch (e) {
+    console.error("Answer error:", e)
+    return c.json({ success: false, error: e.message })
+  }
 })
-
-app.get("/api/health", (c) => c.json({status:"ok"}))
 
 export default app

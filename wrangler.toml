@@ -1,3 +1,4 @@
 ﻿name = "ai-interview-demo"
-pages_build_output_dir = "static"
+main = "src/index.ts"
 compatibility_date = "2026-06-23"
+compatibility_flags = ["nodejs_compat"]

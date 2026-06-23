@@ -7,3 +7,5 @@ dist/
 test-*.js
 test-*.mjs
 gen*.cjs
+static/
+functions/

@@ -1,3 +1,5 @@
+﻿const fs = require("fs");
+const proxy = `
 export async function onRequest(context) {
   const { request } = context;
   const url = new URL(request.url);
@@ -60,3 +62,6 @@ export async function onRequest(context) {
     });
   }
 }
+`;
+fs.writeFileSync("functions/api/proxy.ts", proxy.trim(), "utf8");
+console.log("OK");

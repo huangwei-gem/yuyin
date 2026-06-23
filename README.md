@@ -1,84 +1,81 @@
-﻿# AI 语音面试 Demo
+﻿# AI 语音面试 Demo - 飞书版
 
-基于 Cloudflare Workers 生态的在线语音面试工具。
+基于 Cloudflare Workers 的在线语音面试工具，录音自动保存到**飞书多维表格**。
 
 ## 架构
 
-\\\
-用户浏览器 ──► Cloudflare Pages ──► Workers (Hono)
-                        │                    │
-                        │              ┌─────┴──────┐
-                        │           D1 数据库    R2 存储
-                        │         (面试记录)   (音频文件)
-                        │
-                   Workers AI (Whisper 语音转写)
-\\\
+```
+浏览器 (录音) ──► Cloudflare Workers (Hono) ──► 飞书开放 API
+                                         │
+                                    Workers AI (Whisper 转写)
+```
+
+- 不需要 R2（不用绑卡）
+- 不需要 D1数据库
+- 录音直接上传飞书云盘 + 写入多维表格
 
 ## 功能
 
 - 选择面试职位（前端/后端/通用），各 5 道预设题
-- 浏览器录音（MediaRecorder），回答后上传
-- 录音自动保存到 Cloudflare R2（永久存储）
-- 支持在线播放录音
-- 使用 Workers AI Whisper 自动语音转写（可选）
+- 浏览器录音（MediaRecorder），回答后自动上传
+- 录音自动存入飞书云盘，记录写入飞书多维表格
+- 支持在线回放录音
+- Workers AI Whisper 自动语音转写
 
-## 本地开发
+## 部署前准备
 
-### 前置条件
+### 1. 创建飞书应用
 
-- Node.js 18+
-- Cloudflare 账户
+1. 打开 https://open.feishu.cn/app 创建企业自建应用
+2. 添加能力：**多维表格**
+3. 发布应用，获取 App ID 和 App Secret
+4. 权限管理中开启：
+   - `bitable:app`
+   - `drive:drive`
 
-### 1. 安装依赖
+### 2. 创建多维表格
 
-\\\ash
-cd ai-interview-demo
+在飞书创建一个多维表格，包含以下字段：
+
+| 字段名 | 类型 | 说明 |
+|--------|------|------|
+| 面试ID | 文本 | 自动生成 |
+| 候选人 | 文本 | 候选人名字 |
+| 职位 | 文本 | 面试职位 |
+| 总题数 | 数字 | 题目总数 |
+| 状态 | 文本 | 进行中/已完成 |
+| 创建时间 | 文本 | 面试开始时间 |
+
+再创建第二个表（或另一个多维表格），字段：
+
+| 字段名 | 类型 | 说明 |
+|--------|------|------|
+| 面试ID | 文本 | 关联面试 |
+| 题目 | 文本 | 题目内容 |
+| 题号 | 数字 | 题目序号 |
+| 录音 | 附件 | 录音文件 |
+
+3. 从多维表格 URL 中获取 `base_token`（URL 中间那段 ID）
+4. 从表设置中获取 `table_id`
+
+### 3. 配置 Cloudflare Secrets
+
+```bash
+npx wrangler secret put LARK_APP_ID       # 飞书应用 App ID
+npx wrangler secret put LARK_APP_SECRET   # 飞书应用 App Secret
+npx wrangler secret put LARK_BASE_TOKEN   # 多维表格 base_token
+npx wrangler secret put LARK_TABLE_ID     # 数据表 table_id
+```
+
+## 部署
+
+```bash
 npm install
-\\\
-
-### 2. 创建资源
-
-\\\ash
-# 登录 Cloudflare
 npx wrangler login
+npx wrangler deploy
+```
 
-# 创建 D1 数据库
-npx wrangler d1 create ai-interview-db
-
-# 创建 R2 Bucket
-npx wrangler r2 bucket create ai-interview-audio
-\\\
-
-### 3. 更新配置
-
-创建好 D1 数据库后，把输出的 \database_id\ 填入 \wrangler.toml\：
-
-\\\	oml
-[[d1_databases]]
-binding = ""DB""
-database_name = ""ai-interview-db""
-database_id = ""xxxx-xxxx-xxxx-xxxx""  # 替换成实际的 database_id
-\\\
-
-### 4. 初始化数据库
-
-\\\ash
-npm run db:init
-\\\
-
-### 5. 本地运行
-
-\\\ash
-npm run dev
-\\\
-
-打开 http://localhost:8787 即可使用。
-
-### 6. 部署到生产
-
-\\\ash
-npm run deploy
-\\\
+打开输出的 `.workers.dev` 链接即可使用。
 
 ## API 接口
 
@@ -86,23 +83,14 @@ npm run deploy
 |------|------|------|
 | GET | /api/positions | 获取面试职位列表 |
 | POST | /api/interviews | 创建面试会话 |
+| POST | /api/interviews/:id/start | 初始化面试进度 |
 | GET | /api/interviews/:id/current | 获取当前题目 |
-| POST | /api/interviews/:id/answer | 上传录音回答 |
-| GET | /api/interviews/:id/history | 获取面试历史 |
-| GET | /api/interviews | 获取所有面试记录 |
-| GET | /api/audio/:key | 获取录音文件 |
+| POST | /api/interviews/:id/answer | 上传录音（存飞书） |
+| GET | /api/audio/:fileToken | 从飞书获取录音 |
 
 ## 免费额度
 
-全部运行在 Cloudflare 免费计划下：
-
-- **Workers**: 每天 100,000 请求（完全够用）
-- **D1**: 免费 5GB 存储
-- **R2**: 免费 10GB 存储 + 每月 1000 万次读取
-- **Workers AI**: 每天 10,000 次推理（Whisper 转写用）
-
-## 注意事项
-
-- 浏览器需支持 MediaRecorder API（Chrome/Firefox/Edge 均可）
-- 录音格式为 WebM Opus，体积小，适合网络传输
-- Whisper 转写失败不会阻塞录音保存流程
+- **Workers**: 每天 100,000 请求
+- **Workers AI**: 每天 10,000 次推理（Whisper 转写）
+- **飞书开放平台**: 免费
+- **不需要绑卡**

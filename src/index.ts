@@ -29,17 +29,97 @@ const QUESTION_BANK: Record<string, string[]> = {
 // ── 环境类型 ────────────────────────────────────
 interface Env {
   AI: { run: (model: string, input: any) => Promise<any> }
-  AUDIO_BUCKET: R2Bucket
-  DB: D1Database
+  // 飞书应用配置（从 Workers Secrets 注入）
+  LARK_APP_ID: string
+  LARK_APP_SECRET: string
+  LARK_BASE_TOKEN: string    // 多维表格 base_token
+  LARK_TABLE_ID: string      // 多维表格的数据表 ID
 }
 
-type Bindings = Env
+// ── 飞书 API 工具 ──────────────────────────────
+async function getTenantAccessToken(appId: string, appSecret: string): Promise<string> {
+  const res = await fetch('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
+  })
+  const data: any = await res.json()
+  if (data.code !== 0) throw new Error(`飞书 token 获取失败: ${data.msg}`)
+  return data.tenant_access_token
+}
+
+async function uploadToFeishuDrive(
+  token: string,
+  fileName: string,
+  fileBuffer: ArrayBuffer,
+  parentType: string,
+  parentNode: string,
+): Promise<string> {
+  const formData = new FormData()
+  formData.append('file_name', fileName)
+  formData.append('parent_type', parentType)
+  formData.append('parent_node', parentNode)
+  formData.append('size', String(fileBuffer.byteLength))
+  formData.append('file', new File([fileBuffer], fileName, { type: 'audio/webm' }))
+
+  const res = await fetch('https://open.feishu.cn/open-apis/drive/v1/medias/upload_all', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  })
+  const data: any = await res.json()
+  if (data.code !== 0) throw new Error(`飞书文件上传失败: ${data.msg}`)
+  return data.data.file_token
+}
+
+async function addRecordToBase(
+  token: string,
+  baseToken: string,
+  tableId: string,
+  fields: Record<string, any>,
+): Promise<string> {
+  const res = await fetch(
+    `https://open.feishu.cn/open-apis/bitable/v1/apps/${baseToken}/tables/${tableId}/records`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ fields }),
+    },
+  )
+  const data: any = await res.json()
+  if (data.code !== 0) throw new Error(`飞书写入记录失败: ${data.msg}`)
+  return data.data.record.record_id
+}
+
+async function updateRecordFields(
+  token: string,
+  baseToken: string,
+  tableId: string,
+  recordId: string,
+  fields: Record<string, any>,
+): Promise<void> {
+  const res = await fetch(
+    `https://open.feishu.cn/open-apis/bitable/v1/apps/${baseToken}/tables/${tableId}/records/${recordId}`,
+    {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ fields }),
+    },
+  )
+  const data: any = await res.json()
+  if (data.code !== 0) throw new Error(`飞书更新记录失败: ${data.msg}`)
+}
 
 // ── App ──────────────────────────────────────────
-const app = new Hono<{ Bindings: Bindings }>()
+const app = new Hono<{ Bindings: Env }>()
 app.use('/*', cors())
 
-// 用于生成随机会话 ID (简易 uuid v4)
 function genId(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0
@@ -63,137 +143,166 @@ app.post('/api/interviews', async (c) => {
   const questions = QUESTION_BANK[position] || QUESTION_BANK.general
   const interviewId = genId()
 
-  await c.env.DB.prepare(
-    'INSERT INTO interviews (id, candidate_name, position) VALUES (?, ?, ?)'
-  ).bind(interviewId, candidateName, position).run()
+  // 写入飞书多维表格 - 创建面试记录行
+  const token = await getTenantAccessToken(c.env.LARK_APP_ID, c.env.LARK_APP_SECRET)
 
-  // 写入面试题目
-  const stmt = c.env.DB.prepare(
-    'INSERT INTO qa_records (id, interview_id, question, question_order) VALUES (?, ?, ?, ?)'
-  )
-  for (let i = 0; i < questions.length; i++) {
-    await stmt.bind(genId(), interviewId, questions[i], i + 1).run()
+  const fieldValue: Record<string, any> = {
+    '面试ID': interviewId,
+    '候选人': candidateName,
+    '职位': position === 'frontend' ? '前端开发' : position === 'backend' ? '后端开发' : '通用面试',
+    '总题数': questions.length,
+    '状态': '进行中',
+    '创建时间': new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }),
   }
+
+  await addRecordToBase(token, c.env.LARK_BASE_TOKEN, c.env.LARK_TABLE_ID, fieldValue)
 
   return c.json({
     interviewId,
     totalQuestions: questions.length,
     firstQuestion: questions[0],
+    questions,
   })
 })
 
-// ── 3. 获取当前题目 ─────────────────────────────
+// ── 3. 获取当前题目（从内存中轮询，不依赖数据库） ──
+// 用内存 Map 存储面试进度（Workers 冷启动会丢失，但一次面试流程够用）
+const interviewProgress = new Map<string, { currentIndex: number; questions: string[] }>()
+
+app.post('/api/interviews/:id/start', async (c) => {
+  const interviewId = c.req.param('id')
+  const { questions } = await c.req.json() as { questions: string[] }
+
+  interviewProgress.set(interviewId, { currentIndex: 0, questions })
+
+  return c.json({
+    done: false,
+    qaId: `${interviewId}-q0`,
+    question: questions[0],
+    questionOrder: 1,
+  })
+})
+
 app.get('/api/interviews/:id/current', async (c) => {
   const interviewId = c.req.param('id')
+  const progress = interviewProgress.get(interviewId)
 
-  // 获取第一个还没有回答的问题
-  const qa = await c.env.DB.prepare(
-    'SELECT id, question, question_order FROM qa_records WHERE interview_id = ? AND answer_audio_key IS NULL ORDER BY question_order ASC LIMIT 1'
-  ).bind(interviewId).first<{ id: string; question: string; question_order: number }>()
-
-  if (!qa) {
-    // 没有未答题目 → 面试结束
-    await c.env.DB.prepare(
-      "UPDATE interviews SET status = 'completed', updated_at = datetime('now') WHERE id = ?"
-    ).bind(interviewId).run()
+  if (!progress || progress.currentIndex >= progress.questions.length) {
     return c.json({ done: true })
   }
 
   return c.json({
     done: false,
-    qaId: qa.id,
-    question: qa.question,
-    questionOrder: qa.question_order,
+    qaId: `${interviewId}-q${progress.currentIndex}`,
+    question: progress.questions[progress.currentIndex],
+    questionOrder: progress.currentIndex + 1,
   })
 })
 
-// ── 4. 上传录音 ─────────────────────────────────
+// ── 4. 上传录音并写入飞书多维表格 ────────────────
 app.post('/api/interviews/:id/answer', async (c) => {
   const interviewId = c.req.param('id')
   const formData = await c.req.formData()
   const audioFile = formData.get('audio') as File | null
   const qaId = formData.get('qaId') as string
+  const questionText = formData.get('question') as string
+  const questionOrder = formData.get('order') as string
 
   if (!audioFile || !qaId) {
     return c.json({ error: '缺少音频文件或 qaId' }, 400)
   }
 
-  // 上传到 R2
-  const audioKey = interviews//.webm
-  await c.env.AUDIO_BUCKET.put(audioKey, audioFile.stream(), {
-    httpMetadata: { contentType: audioFile.type || 'audio/webm' },
-  })
-
-  // 更新数据库
-  await c.env.DB.prepare(
-    'UPDATE qa_records SET answer_audio_key = ?, updated_at = datetime(\'now\') WHERE id = ?'
-  ).bind(audioKey, qaId).run()
-
-  // 可选：用 Workers AI Whisper 做语音转写
-  let transcript = ''
-  try {
-    const result = await c.env.AI.run('@cf/openai/whisper-tiny-en', {
-      audio: [...new Uint8Array(await audioFile.arrayBuffer())],
-    })
-    transcript = result?.text || ''
-    if (transcript) {
-      await c.env.DB.prepare(
-        'UPDATE qa_records SET answer_text = ? WHERE id = ?'
-      ).bind(transcript, qaId).run()
-    }
-  } catch (e) {
-    // Whisper 转写失败不阻塞流程
-    console.error('Whisper transcription failed:', e)
+  // 更新面试进度
+  const progress = interviewProgress.get(interviewId)
+  if (progress) {
+    progress.currentIndex++
   }
+
+  let fileToken = ''
+  let transcript = ''
+
+  try {
+    // 获取飞书 token
+    const token = await getTenantAccessToken(c.env.LARK_APP_ID, c.env.LARK_APP_SECRET)
+
+    // 上传音频到飞书云盘
+    const audioBuffer = await audioFile.arrayBuffer()
+    fileToken = await uploadToFeishuDrive(
+      token,
+      `interview-${interviewId}-q${questionOrder || '0'}.webm`,
+      audioBuffer,
+      'bitable_file',
+      c.env.LARK_BASE_TOKEN,
+    )
+
+    // 写入多维表格 - 每一题一条记录
+    const fieldValue: Record<string, any> = {
+      '面试ID': interviewId,
+      '题目': questionText || '',
+      '题号': questionOrder ? Number(questionOrder) : 0,
+      '录音': fileToken,
+    }
+
+    await addRecordToBase(token, c.env.LARK_BASE_TOKEN, c.env.LARK_TABLE_ID, fieldValue)
+
+    // 可选：用 Workers AI Whisper 做语音转写
+    try {
+      const result = await c.env.AI.run('@cf/openai/whisper-tiny-en', {
+        audio: [...new Uint8Array(audioBuffer)],
+      })
+      transcript = result?.text || ''
+    } catch (e) {
+      // Whisper 转写失败不阻塞
+      console.error('Whisper failed:', e)
+    }
+  } catch (e: any) {
+    console.error('飞书 API 错误:', e.message || e)
+    // 飞书写入失败不阻塞面试流程
+  }
+
+  // 检查是否面试结束
+  const isDone = progress ? progress.currentIndex >= progress.questions.length : false
 
   return c.json({
     success: true,
-    audioKey,
+    fileToken,
     transcript,
+    done: isDone,
   })
 })
 
-// ── 5. 获取录音下载链接 ─────────────────────────
-app.get('/api/audio/:key', async (c) => {
-  const key = c.req.param('key')
-  const obj = await c.env.AUDIO_BUCKET.get(key)
-  if (!obj) return c.json({ error: '音频未找到' }, 404)
+// ── 5. 获取音频下载链接（从飞书云盘） ────────────
+app.get('/api/audio/:fileToken', async (c) => {
+  const fileToken = c.req.param('fileToken')
 
-  return new Response(obj.body, {
-    headers: {
-      'Content-Type': obj.httpMetadata?.contentType || 'audio/webm',
-      'Content-Disposition': ttachment; filename="interview-",
-    },
-  })
-})
+  try {
+    const token = await getTenantAccessToken(
+      c.env.LARK_APP_ID,
+      c.env.LARK_APP_SECRET,
+    )
 
-// ── 6. 获取面试历史 ─────────────────────────────
-app.get('/api/interviews/:id/history', async (c) => {
-  const interviewId = c.req.param('id')
+    const res = await fetch(
+      `https://open.feishu.cn/open-apis/drive/v1/medias/${fileToken}/download`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    )
 
-  const interview = await c.env.DB.prepare(
-    'SELECT * FROM interviews WHERE id = ?'
-  ).bind(interviewId).first()
+    if (!res.ok) {
+      return c.json({ error: '音频获取失败' }, 404)
+    }
 
-  if (!interview) return c.json({ error: '面试不存在' }, 404)
-
-  const qas = await c.env.DB.prepare(
-    'SELECT * FROM qa_records WHERE interview_id = ? ORDER BY question_order ASC'
-  ).bind(interviewId).all()
-
-  return c.json({ interview, qas: qas.results })
-})
-
-// ── 7. 获取所有面试记录 ─────────────────────────
-app.get('/api/interviews', async (c) => {
-  const { results } = await c.env.DB.prepare(
-    'SELECT * FROM interviews ORDER BY created_at DESC'
-  ).all()
-  return c.json({ interviews: results })
+    const blob = await res.blob()
+    return new Response(blob, {
+      headers: {
+        'Content-Type': 'audio/webm',
+        'Content-Disposition': `attachment; filename="interview-${fileToken}.webm"`,
+      },
+    })
+  } catch (e: any) {
+    return c.json({ error: `获取失败: ${e.message}` }, 500)
+  }
 })
 
 // ── Health Check ─────────────────────────────────
 app.get('/api/health', (c) => c.json({ status: 'ok', time: new Date().toISOString() }))
 
 export default app
-

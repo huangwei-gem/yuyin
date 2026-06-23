@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "db:init": "wrangler d1 execute ai-interview-db --file=./schema.sql"
+    "deploy:secrets": "npx wrangler secret put LARK_APP_ID && npx wrangler secret put LARK_APP_SECRET && npx wrangler secret put LARK_BASE_TOKEN && npx wrangler secret put LARK_TABLE_ID"
   },
   "dependencies": {
     "hono": "^4.6.0"

@@ -3,31 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI 语音面试助手 - 飞书版</title>
+<title>AI 语音面试</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-    color: #fff;
-    min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    color: #fff; min-height: 100vh; display: flex; justify-content: center; align-items: center;
   }
   .container { max-width: 700px; width: 100%; padding: 24px; margin: 20px; }
   .card {
-    background: rgba(255,255,255,0.08);
-    backdrop-filter: blur(12px);
-    border-radius: 20px;
-    padding: 32px;
-    border: 1px solid rgba(255,255,255,0.1);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    background: rgba(255,255,255,0.08); backdrop-filter: blur(12px); border-radius: 20px;
+    padding: 32px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 8px 32px rgba(0,0,0,0.3);
   }
   h1 {
-    text-align: center; font-size: 1.8em; margin-bottom: 8px;
-    background: linear-gradient(90deg, #f7971e, #ffd200);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    text-align: center; font-size: 1.8em; margin-bottom: 4px;
+    background: linear-gradient(90deg, #f7971e, #ffd200); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   }
   .subtitle { text-align: center; color: rgba(255,255,255,0.5); margin-bottom: 24px; font-size: 0.9em; }
   .form-group { margin-bottom: 16px; }
@@ -39,7 +30,6 @@
   }
   select:focus, input:focus { border-color: #f7971e; }
   select option { background: #302b63; color: #fff; }
-
   .btn {
     width: 100%; padding: 14px; border: none; border-radius: 12px;
     font-size: 1em; font-weight: 600; cursor: pointer; transition: all 0.2s;
@@ -50,77 +40,47 @@
   .btn-secondary { background: rgba(255,255,255,0.1); color: #fff; }
   .btn-secondary:hover { background: rgba(255,255,255,0.2); box-shadow: none; }
   .btn-danger { background: linear-gradient(90deg, #e74c3c, #c0392b); color: #fff; }
-
   .question-box {
     background: rgba(255,255,255,0.05); border-radius: 16px; padding: 20px; margin: 16px 0;
     border-left: 4px solid #f7971e;
   }
   .question-label { font-size: 0.8em; color: rgba(255,255,255,0.4); }
   .question-text { font-size: 1.15em; line-height: 1.6; margin-top: 8px; color: #fff; }
-
   .recorder { text-align: center; padding: 16px; }
   .record-btn {
-    width: 80px; height: 80px; border-radius: 50%;
-    border: 3px solid #f7971e; background: rgba(247,151,30,0.1);
-    cursor: pointer; transition: all 0.3s; margin: 12px auto;
+    width: 80px; height: 80px; border-radius: 50%; border: 3px solid #f7971e;
+    background: rgba(247,151,30,0.1); cursor: pointer; transition: all 0.3s; margin: 12px auto;
     display: flex; align-items: center; justify-content: center;
   }
-  .record-btn.recording {
-    border-color: #e74c3c; background: rgba(231,76,60,0.2);
-    animation: pulse 1.2s infinite;
-  }
+  .record-btn.recording { border-color: #e74c3c; background: rgba(231,76,60,0.2); animation: pulse 1.2s infinite; }
   @keyframes pulse {
     0% { box-shadow: 0 0 0 0 rgba(231,76,60,0.4); }
     70% { box-shadow: 0 0 0 20px rgba(231,76,60,0); }
     100% { box-shadow: 0 0 0 0 rgba(231,76,60,0); }
   }
-  .record-icon {
-    width: 32px; height: 32px; background: #f7971e;
-    border-radius: 4px; transition: all 0.3s;
-  }
-  .recording .record-icon {
-    background: #e74c3c; border-radius: 50%; width: 24px; height: 24px;
-  }
+  .record-icon { width: 32px; height: 32px; background: #f7971e; border-radius: 4px; transition: all 0.3s; }
+  .recording .record-icon { background: #e74c3c; border-radius: 50%; width: 24px; height: 24px; }
   .timer { font-size: 1.2em; font-variant-numeric: tabular-nums; }
   .status-text { color: rgba(255,255,255,0.5); font-size: 0.85em; margin-top: 8px; }
-
   .step { display: none; }
   .step.active { display: block; }
-
   .progress { display: flex; justify-content: center; gap: 4px; margin: 16px 0; }
   .dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.15); }
   .dot.done { background: #27ae60; }
   .dot.current { background: #f7971e; box-shadow: 0 0 8px rgba(247,151,30,0.5); }
-
-  .history-item {
-    background: rgba(255,255,255,0.04); border-radius: 12px; padding: 16px;
-    margin: 12px 0; border: 1px solid rgba(255,255,255,0.06);
-  }
-  .history-q { color: rgba(255,255,255,0.7); margin-bottom: 6px; }
-  .history-a { color: #2ecc71; font-size: 0.9em; }
-  .history-audio { margin-top: 8px; }
-  .history-audio audio { width: 100%; }
-  .feishu-badge {
-    display: inline-block; background: rgba(47, 108, 255, 0.2); color: #6b8cff;
-    padding: 2px 10px; border-radius: 20px; font-size: 0.75em; margin-left: 8px;
-  }
-
   .toast {
     position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
     background: rgba(0,0,0,0.8); padding: 12px 24px; border-radius: 12px;
-    font-size: 0.9em; z-index: 999; display: none; backdrop-filter: blur(8px);
+    font-size: 0.9em; z-index: 999; display: none;
   }
   .toast.show { display: block; }
-
-  @media (max-width: 500px) { .container { padding: 12px; } .card { padding: 20px; } }
 </style>
 </head>
 <body>
 <div class="container">
   <div class="card">
     <h1>&#127908; AI 语音面试</h1>
-    <p class="subtitle">录音自动存入飞书多维表格 <span class="feishu-badge">&#128209; 飞书版</span></p>
-
+    <p class="subtitle">纯前端 · 录音直存飞书</p>
     <div id="step-setup" class="step active">
       <div class="form-group">
         <label>面试职位</label>
@@ -132,11 +92,10 @@
       </div>
       <div class="form-group">
         <label>你的名字</label>
-        <input type="text" id="name-input" placeholder="输入你的名字..." value="Anonymous">
+        <input type="text" id="name-input" placeholder="输入名字..." value="Anonymous">
       </div>
       <button class="btn" onclick="startInterview()">开始面试 &#8594;</button>
     </div>
-
     <div id="step-interview" class="step">
       <div class="progress" id="progress-dots"></div>
       <div class="question-box">
@@ -144,23 +103,19 @@
         <div class="question-text" id="question-text">加载中...</div>
       </div>
       <div class="recorder">
-        <div class="record-btn" id="record-btn" onclick="toggleRecord()">
-          <div class="record-icon"></div>
-        </div>
+        <div class="record-btn" id="record-btn" onclick="toggleRecord()"><div class="record-icon"></div></div>
         <div class="timer" id="timer">00:00</div>
         <div class="status-text" id="status-text">点击按钮开始录音</div>
       </div>
-      <button class="btn btn-secondary" id="next-btn" onclick="submitAnswer()" disabled>
-        提交录音 &amp; 下一题 &#8594;
-      </button>
+      <button class="btn btn-secondary" id="next-btn" onclick="submitAnswer()" disabled>提交录音 &#8594;</button>
       <button class="btn btn-danger" onclick="endInterview()">结束面试</button>
     </div>
-
     <div id="step-done" class="step">
       <div style="text-align:center;padding:20px;">
         <div style="font-size:3em;">&#127881;</div>
         <h2 style="margin:16px 0;">面试完成！</h2>
-        <p style="color:rgba(255,255,255,0.6);margin-bottom:20px;">录音已自动存入飞书多维表格</p>
+        <p style="color:rgba(255,255,255,0.6);">录音已存入飞书多维表格</p>
+        <a id="feishu-link" href="https://ywwlaii6ga7.feishu.cn/base/E9dCbLvXtawJtNsrhticbE1pnOd?table=tblRdpIVEQIh97Gs" target="_blank" style="color:#6b8cff;font-size:0.9em;display:inline-block;margin-top:12px;">&#128279; 查看飞书表格</a>
       </div>
       <button class="btn" onclick="location.reload()">再来一次</button>
     </div>
@@ -169,126 +124,158 @@
 <div class="toast" id="toast"></div>
 
 <script>
-var interviewId = ''
-var currentQaId = ''
-var totalQuestions = 0
-var currentOrder = 0
+// === 飞书配置 ===
+var LARK_CONFIG = {
+  appId: "cli_aab083cfebf8dce7",
+  appSecret: "vkEtRGulqjNoyFnXuQSnjbzoKxqpcKl8",
+  baseToken: "E9dCbLvXtawJtNsrhticbE1pnOd",
+  interviewTableId: "tbl0G4d8VNOGS15z",
+  qaTableId: "tblRdpIVEQIh97Gs"
+}
+
+// === 预设面试题 ===
+var QUESTION_BANK = {
+  frontend: ["请解释一下 React 的虚拟 DOM 是如何工作的？","你能说说 CSS 的盒模型是什么吗？","什么是闭包？请举一个实际应用的例子。","请解释一下 Event Loop 的机制。","前端性能优化有哪些常用的手段？"],
+  backend: ["请解释一下 RESTful API 的设计原则。","什么是数据库索引？它如何提高查询性能？","请解释一下什么是微服务架构。","如何设计一个高可用的系统？","什么是 CAP 定理？请简要说明。"],
+  general: ["请做个简单的自我介绍。","你为什么想来我们公司？","请分享一个你解决过的技术难题。","你是如何处理工作中的压力的？","你未来三年
+
+的职业规划是什么？"]
+}
+
+// === 工具函数 ===
+function toast(msg) { var el = document.getElementById('toast'); el.textContent = msg; el.classList.add('show'); setTimeout(function() { el.classList.remove('show') }, 2500) }
+function showStep(id) { document.querySelectorAll('.step').forEach(function(s) { s.classList.remove('active') }); document.getElementById(id).classList.add('active') }
+function genId() { return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) { var r = Math.random()*16|0; return (c==='x'?r:(r&0x3)|0x8).toString(16) }) }
+
+// === 飞书 API ===
+var _tokenCache = { token: '', expire: 0 }
+
+async function getFeishuToken() {
+  if (Date.now() < _tokenCache.expire) return _tokenCache.token
+  var r = await fetch('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ app_id: LARK_CONFIG.appId, app_secret: LARK_CONFIG.appSecret })
+  })
+  var d = await r.json()
+  if (d.code !== 0) throw new Error('飞书token失败: ' + d.msg)
+  _tokenCache.token = d.tenant_access_token
+  _tokenCache.expire = Date.now() + (d.expire - 60) * 1000
+  return d.tenant_access_token
+}
+
+async function uploadAudio(token, fileName, audioBlob) {
+  var formData = new FormData()
+  formData.append('file_name', fileName)
+  formData.append('parent_type', 'bitable_file')
+  formData.append('parent_node', LARK_CONFIG.baseToken)
+  formData.append('size', String(audioBlob.size))
+  formData.append('file', audioBlob, fileName)
+  var r = await fetch('https://open.feishu.cn/open-apis/drive/v1/medias/upload_all', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token },
+    body: formData
+  })
+  var d = await r.json()
+  if (d.code !== 0) throw new Error('上传失败: ' + d.msg)
+  return d.data.file_token
+}
+
+async function addRecord(token, tableId, fields) {
+  var r = await fetch('https://open.feishu.cn/open-apis/bitable/v1/apps/' + LARK_CONFIG.baseToken + '/tables/' + tableId + '/records', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields: fields })
+  })
+  var d = await r.json()
+  if (d.code !== 0) throw new Error('写入失败: ' + d.msg)
+  return d.data.record.record_id
+}
+
+// === 面试逻辑 ===
+var currentStep = 0
 var questions = []
+var interviewId = ''
 var recorder = null
 var audioChunks = []
 var isRecording = false
 var timerInterval = null
 var seconds = 0
 
-function toast(msg) {
-  var el = document.getElementById('toast')
-  el.textContent = msg
-  el.classList.add('show')
-  setTimeout(function() { el.classList.remove('show') }, 2500)
-}
-
-function showStep(id) {
-  document.querySelectorAll('.step').forEach(function(s) { s.classList.remove('active') })
-  document.getElementById(id).classList.add('active')
-}
-
-// 创建面试
 async function startInterview() {
-  var position = document.getElementById('position-select').value
+  var pos = document.getElementById('position-select').value
   var name = document.getElementById('name-input').value || 'Anonymous'
+  questions = QUESTION_BANK[pos] || QUESTION_BANK.general
+  interviewId = genId()
+  currentStep = 0
 
-  var res = await fetch('/api/interviews', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ position: position, candidateName: name }),
-  })
-  var data = await res.json()
-
-  interviewId = data.interviewId
-  totalQuestions = data.totalQuestions
-  questions = data.questions
-
-  // 在后端初始化进度
-  await fetch('/api/interviews/' + interviewId + '/start', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questions: questions }),
-  })
+  // 写入飞书面试记录表
+  try {
+    var token = await getFeishuToken()
+    await addRecord(token, LARK_CONFIG.interviewTableId, {
+      "面试ID": interviewId,
+      "候选人": name,
+      "职位": pos === 'frontend' ? '前端开发' : pos === 'backend' ? '后端开发' : '通用面试',
+      "总题数": questions.length,
+      "状态": "进行中",
+      "创建时间": new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
+    })
+  } catch (e) { console.error(e) }
 
   showStep('step-interview')
-  renderProgress()
-  loadCurrentQuestion()
+  showQuestion()
 }
 
-function loadCurrentQuestion() {
-  fetch('/api/interviews/' + interviewId + '/current')
-    .then(function(r) { return r.json() })
-    .then(function(data) {
-      if (data.done) {
-        showStep('step-done')
-        return
-      }
-      currentQaId = data.qaId
-      currentOrder = data.questionOrder
-      document.getElementById('q-order').textContent = data.questionOrder
-      document.getElementById('question-text').textContent = data.question
-      renderProgress()
-      resetRecorder()
-      document.getElementById('next-btn').disabled = true
-    })
+function showQuestion() {
+  if (currentStep >= questions.length) {
+    showStep('step-done')
+    return
+  }
+  document.getElementById('q-order').textContent = currentStep + 1
+  document.getElementById('question-text').textContent = questions[currentStep]
+  renderProgress()
+  resetRecorder()
+  document.getElementById('next-btn').disabled = true
 }
 
 function renderProgress() {
   var el = document.getElementById('progress-dots')
   el.innerHTML = ''
-  for (var i = 1; i <= totalQuestions; i++) {
+  for (var i = 0; i < questions.length; i++) {
     var dot = document.createElement('div')
     dot.className = 'dot'
-    if (i < currentOrder) dot.classList.add('done')
-    if (i === currentOrder) dot.classList.add('current')
+    if (i < currentStep) dot.classList.add('done')
+    if (i === currentStep) dot.classList.add('current')
     el.appendChild(dot)
   }
 }
 
-// 录音
-async function toggleRecord() {
-  if (isRecording) { stopRecording() } else { await startRecording() }
-}
+async function toggleRecord() { if (isRecording) stopRecording(); else await startRecording() }
 
 async function startRecording() {
   try {
     var stream = await navigator.mediaDevices.getUserMedia({ audio: true })
     recorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' })
     audioChunks = []
-
-    recorder.ondataavailable = function(e) {
-      if (e.data.size > 0) audioChunks.push(e.data)
-    }
+    recorder.ondataavailable = function(e) { if (e.data.size > 0) audioChunks.push(e.data) }
     recorder.onstop = function() {
       stream.getTracks().forEach(function(t) { t.stop() })
       document.getElementById('next-btn').disabled = false
     }
-
     recorder.start()
     isRecording = true
     document.getElementById('record-btn').classList.add('recording')
     document.getElementById('status-text').textContent = '正在录音...'
-    seconds = 0
-    updateTimer()
-    timerInterval = setInterval(function() {
-      seconds++
-      updateTimer()
-    }, 1000)
-  } catch (e) {
-    toast('请允许麦克风权限')
-  }
+    seconds = 0; updateTimer()
+    timerInterval = setInterval(function() { seconds++; updateTimer() }, 1000)
+  } catch (e) { toast('请允许麦克风权限') }
 }
 
 function stopRecording() {
   if (recorder && recorder.state !== 'inactive') recorder.stop()
   isRecording = false
   document.getElementById('record-btn').classList.remove('recording')
-  document.getElementById('status-text').textContent = '录音完成，正在上传飞书...'
+  document.getElementById('status-text').textContent = '正在上传飞书...'
   clearInterval(timerInterval)
 }
 
@@ -297,10 +284,7 @@ function resetRecorder() {
   isRecording = false
   document.getElementById('record-btn').classList.remove('recording')
   document.getElementById('status-text').textContent = '点击按钮开始录音'
-  clearInterval(timerInterval)
-  seconds = 0
-  updateTimer()
-  audioChunks = []
+  clearInterval(timerInterval); seconds = 0; updateTimer(); audioChunks = []
 }
 
 function updateTimer() {
@@ -309,51 +293,38 @@ function updateTimer() {
   document.getElementById('timer').textContent = m + ':' + s
 }
 
-// 提交答案
 async function submitAnswer() {
-  if (!currentQaId || audioChunks.length === 0) {
-    toast('请先录音')
-    return
-  }
-
-  var audioBlob = new Blob(audioChunks, { type: 'audio/webm' })
-  if (audioBlob.size < 100) {
-    toast('录音太短，请重新录制')
-    return
-  }
+  if (audioChunks.length === 0) { toast('请先录音'); return }
+  var blob = new Blob(audioChunks, { type: 'audio/webm' })
+  if (blob.size < 100) { toast('录音太短'); return }
 
   document.getElementById('next-btn').disabled = true
   document.getElementById('status-text').textContent = '正在上传飞书...'
 
-  var formData = new FormData()
-  formData.append('audio', audioBlob, 'answer.webm')
-  formData.append('qaId', currentQaId)
-  formData.append('question', document.getElementById('question-text').textContent)
-  formData.append('order', String(currentOrder))
-
   try {
-    var res = await fetch('/api/interviews/' + interviewId + '/answer', {
-      method: 'POST',
-      body: formData,
+    var token = await getFeishuToken()
+    // 上传音频到飞书云盘
+    var fileName = 'interview-' + interviewId + '-q' + (currentStep + 1) + '.webm'
+    var fileToken = await uploadAudio(token, fileName, blob)
+    // 写入问答记录
+    await addRecord(token, LARK_CONFIG.qaTableId, {
+      "面试ID": interviewId,
+      "题目": questions[currentStep],
+      "题号": String(currentStep + 1),
+      "录音": fileToken
     })
-    var data = await res.json()
-
-    if (data.success) {
-      toast('录音已保存到飞书')
-      currentOrder++
-      loadCurrentQuestion()
-    } else {
-      toast('上传失败，请重试')
-      document.getElementById('next-btn').disabled = false
-    }
+    toast('已保存到飞书!')
+    currentStep++
+    showQuestion()
   } catch (e) {
-    toast('网络错误，请重试')
+    console.error(e)
+    toast('上传失败: ' + e.message)
     document.getElementById('next-btn').disabled = false
   }
 }
 
 function endInterview() {
-  if (confirm('确定要结束面试吗？未提交的录音将丢失。')) {
+  if (confirm('确定结束面试？未提交的录音将丢失。')) {
     showStep('step-done')
   }
 }

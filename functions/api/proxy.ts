@@ -103,7 +103,7 @@ export async function onRequest(context) {
         "\u9762\u8bd5ID": interviewId,
         "\u9898\u76ee": question,
         "\u9898\u53f7": String(qOrder),
-        "\u5f55\u97f3": fileUrl
+        "\u5f55\u97f3": [{ "file_token": fileToken }]
       }})
     });
     const qaData = await qaResp.json();

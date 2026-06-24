@@ -1,24 +1,19 @@
 // Cloudflare Pages Functions - proxy for Feishu API
-// Environment variables set via wrangler.toml or Pages dashboard:
-// LARK_APP_ID, LARK_APP_SECRET, LARK_BASE_TOKEN, LARK_TABLE_ID, LARK_QA_TABLE_ID
+// ENV: LARK_APP_ID, LARK_APP_SECRET, LARK_BASE_TOKEN, LARK_TABLE_ID, LARK_QA_TABLE_ID
 
 export async function onRequest(context) {
   const { request, env } = context;
 
-  // CORS headers
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "*",
     "Access-Control-Max-Age": "86400"
   };
 
-  // Handle OPTIONS preflight
   if (request.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
-
-  // Only accept POST
   if (request.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" }
@@ -26,7 +21,6 @@ export async function onRequest(context) {
   }
 
   try {
-    // Parse form data from the frontend
     const formData = await request.formData();
     const audioFile = formData.get("audio");
     const question = formData.get("question") || "";
@@ -36,14 +30,13 @@ export async function onRequest(context) {
     const candidateName = formData.get("candidateName") || "Anonymous";
     const position = formData.get("position") || "general";
 
-    // Validate required env vars
-    if (!env.LARK_APP_ID || !env.LARK_APP_SECRET || !env.LARK_BASE_TOKEN || !env.LARK_TABLE_ID || !env.LARK_QA_TABLE_ID) {
-      return new Response(JSON.stringify({ success: false, error: "Missing env config" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
+    if (!audioFile) {
+      return new Response(JSON.stringify({ success: false, error: "No audio file" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
 
-    // Step 1: Get tenant access token
+    // === Step 1: Get Feishu tenant token ===
     const tokenResp = await fetch("https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -55,71 +48,68 @@ export async function onRequest(context) {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
-    var token = tokenData.tenant_access_token;
-    var baseToken = env.LARK_BASE_TOKEN;
+    const token = tokenData.tenant_access_token;
 
-    // Step 2: Create or find interview record (fire and forget - first time)
-    // We check if this is a new interview by seeing if the audio file name starts with "q1"
+    // === Step 2: Create interview record (only on first question) ===
     if (questionOrder === "1") {
-      var posName = position === "frontend" ? "前端开发" : position === "backend" ? "后端开发" : "通用面试";
-      var createResp = await fetch("https://open.feishu.cn/open-apis/bitable/v1/apps/" + baseToken + "/tables/" + env.LARK_TABLE_ID + "/records", {
+      const posName = position === "frontend" ? "\u524d\u7aef\u5f00\u53d1" : position === "backend" ? "\u540e\u7aef\u5f00\u53d1" : "\u901a\u7528\u9762\u8bd5";
+      await fetch("https://open.feishu.cn/open-apis/bitable/v1/apps/" + env.LARK_BASE_TOKEN + "/tables/" + env.LARK_TABLE_ID + "/records", {
         method: "POST",
         headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
         body: JSON.stringify({ fields: {
-          "面试ID": interviewId,
-          "候选人": candidateName,
-          "职位": posName,
-          "总题数": parseInt(totalQuestions) || 5,
-          "状态": "进行中",
-          "创建时间": new Date().toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })
+          "\u9762\u8bd5ID": interviewId,
+          "\u5019\u9009\u4eba": candidateName,
+          "\u804c\u4f4d": posName,
+          "\u603b\u9898\u6570": parseInt(totalQuestions) || 5,
+          "\u72b6\u6001": "\u8fdb\u884c\u4e2d",
+          "\u521b\u5efa\u65f6\u95f4": new Date().toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })
         }})
       });
-      await createResp.json();
     }
 
-    // Step 3: Upload audio to Feishu Drive
-    var audioBuffer = await audioFile.arrayBuffer();
-    var fileName = "interview-" + interviewId + "-q" + questionOrder + ".webm";
+    // === Step 3: Upload audio to Feishu Drive ===
+    const audioBuffer = await audioFile.arrayBuffer();
+    const fileName = "interview-" + interviewId + "-q" + questionOrder + ".webm";
 
-    var uploadForm = new FormData();
+    const uploadForm = new FormData();
     uploadForm.append("file_name", fileName);
     uploadForm.append("parent_type", "bitable_file");
-    uploadForm.append("parent_node", baseToken);
+    uploadForm.append("parent_node", env.LARK_BASE_TOKEN);
     uploadForm.append("size", String(audioBuffer.byteLength));
     uploadForm.append("file", new Blob([audioBuffer], { type: "audio/webm" }), fileName);
 
-    var uploadResp = await fetch("https://open.feishu.cn/open-apis/drive/v1/medias/upload_all", {
+    const uploadResp = await fetch("https://open.feishu.cn/open-apis/drive/v1/medias/upload_all", {
       method: "POST",
       headers: { Authorization: "Bearer " + token },
       body: uploadForm
     });
-    var uploadData = await uploadResp.json();
+    const uploadData = await uploadResp.json();
     if (uploadData.code !== 0) {
       return new Response(JSON.stringify({ success: false, error: "Upload error: " + JSON.stringify(uploadData) }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
-    var fileToken = uploadData.data.file_token;
+    const fileToken = uploadData.data.file_token;
 
-    // Step 4: Add record to QA table with audio file token
-    var qaResp = await fetch("https://open.feishu.cn/open-apis/bitable/v1/apps/" + baseToken + "/tables/" + env.LARK_QA_TABLE_ID + "/records", {
+    // === Step 4: Add QA record with file token ===
+    const qaResp = await fetch("https://open.feishu.cn/open-apis/bitable/v1/apps/" + env.LARK_BASE_TOKEN + "/tables/" + env.LARK_QA_TABLE_ID + "/records", {
       method: "POST",
       headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
       body: JSON.stringify({ fields: {
-        "面试ID": interviewId,
-        "题目": question,
-        "题号": String(questionOrder),
-        "录音": fileToken
+        "\u9762\u8bd5ID": interviewId,
+        "\u9898\u76ee": question,
+        "\u9898\u53f7": String(questionOrder),
+        "\u5f55\u97f3": fileToken
       }})
     });
-    var qaData = await qaResp.json();
+    const qaData = await qaResp.json();
     if (qaData.code !== 0) {
-      return new Response(JSON.stringify({ success: false, error: "QA record error: " + JSON.stringify(qaData) }), {
+      return new Response(JSON.stringify({ success: false, error: "QA error: " + JSON.stringify(qaData) }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
 
-    return new Response(JSON.stringify({ success: true, fileToken: fileToken }), {
+    return new Response(JSON.stringify({ success: true, fileToken }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
 

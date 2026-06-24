@@ -1,17 +1,11 @@
 ﻿{
-  "name": "ai-interview-demo",
+  "name": "yuyin",
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "deploy:secrets": "npx wrangler secret put LARK_APP_ID && npx wrangler secret put LARK_APP_SECRET && npx wrangler secret put LARK_BASE_TOKEN && npx wrangler secret put LARK_TABLE_ID"
-  },
-  "dependencies": {
-    "hono": "^4.6.0"
+    "dev": "wrangler pages dev ."
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20241112.0",
     "wrangler": "^3.80.0"
   }
 }

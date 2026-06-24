@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 语音面试</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);color:#fff;min-height:100vh;display:flex;justify-content:center;align-items:center;}
+.container{max-width:700px;width:100%;padding:24px;margin:20px;}
+.card{background:rgba(255,255,255,0.08);backdrop-filter:blur(12px);border-radius:20px;padding:32px;border:1px solid rgba(255,255,255,0.1);}
+h1{text-align:center;background:linear-gradient(90deg,#f7971e,#ffd200);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.btn{width:100%;padding:14px;border:none;border-radius:12px;cursor:pointer;background:linear-gradient(90deg,#f7971e,#ffd200);color:#1a1a2e;margin:8px 0;font-size:16px;font-weight:600;}
+.btn:hover{transform:translateY(-1px);}
+.btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+.btn-danger{background:linear-gradient(90deg,#e74c3c,#c0392b);color:#fff;}
+.record-btn{width:80px;height:80px;border-radius:50%;border:3px solid #f7971e;background:rgba(247,151,30,0.1);cursor:pointer;margin:12px auto;display:flex;align-items:center;justify-content:center;transition:all .3s;}
+.record-btn:hover{border-color:#ffd200;background:rgba(247,151,30,0.2);}
+.record-btn.recording{border-color:#e74c3c;animation:pulse 1.2s infinite;}
+.record-btn.recording #ricon{background:#e74c3c;border-radius:50%;width:24px;height:24px;}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(231,76,60,0.4)}70%{box-shadow:0 0 0 20px rgba(231,76,60,0)}100%{box-shadow:0 0 0 0 rgba(231,76,60,0)}}
+.step{display:none;}.step.active{display:block;}
+.progress{display:flex;justify-content:center;gap:4px;margin:16px 0;}
+.dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.15);}
+.dot.done{background:#27ae60;}.dot.current{background:#f7971e;}
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);padding:12px 24px;border-radius:12px;z-index:999;display:none;backdrop-filter:blur(8px);}
+.toast.show{display:block;}
+select,input{width:100%;padding:12px;border-radius:8px;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2);margin:6px 0;font-size:15px;}
+select option{background:#302b63;color:#fff;}
+.question-box{background:rgba(255,255,255,0.05);padding:20px;margin:16px 0;border-left:4px solid #f7971e;border-radius:0 12px 12px 0;font-size:17px;line-height:1.7;}
+#timer{font-size:2em;font-weight:700;margin:8px 0;}
+.status-text{color:rgba(255,255,255,0.5);font-size:.85em;}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:#f7971e;border-radius:50%;animation:spin .8s linear infinite;margin-right:6px;vertical-align:middle;}
+@keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+<div class="container"><div class="card">
+<h1>&#127908; AI 语音面试</h1>
+<p style="color:rgba(255,255,255,0.5);margin-bottom:20px;">录音直存飞书多维表格</p>
+<div id="s1" class="step active">
+  <label style="color:rgba(255,255,255,0.6);font-size:.9em;">职位类型</label>
+  <select id="pos"><option value="frontend">前端开发</option><option value="backend">后端开发</option><option value="general" selected>通用面试</option></select>
+  <label style="color:rgba(255,255,255,0.6);font-size:.9em;">姓名</label>
+  <input type="text" id="name" value="Anonymous" placeholder="输入姓名">
+  <button id="startBtn" class="btn" onclick="startInterview()">开始面试</button>
+</div>
+<div id="s2" class="step">
+  <div class="progress" id="dots"></div>
+  <div class="question-box"><p id="qtext">加载中...</p></div>
+  <div style="text-align:center;">
+    <div class="record-btn" id="rbtn" onclick="toggleRec()"><div id="ricon" style="width:32px;height:32px;background:#f7971e;border-radius:4px;"></div></div>
+    <div id="timer">00:00</div>
+    <div class="status-text" id="status">点击录音</div>
+  </div>
+  <button class="btn" id="nextBtn" onclick="submitAnswer()" disabled>提交录音</button>
+  <button class="btn btn-danger" onclick="endInterview()">结束面试</button>
+</div>
+<div id="s3" class="step" style="text-align:center;padding:20px;">
+  <div style="font-size:3em;">&#127881;</div>
+  <h2>面试完成！</h2>
+  <p style="color:rgba(255,255,255,0.6);margin:12px 0;">录音已存入飞书</p>
+  <a href="https://ywwlaii6ga7.feishu.cn/base/E9dCbLvXtawJtNsrhticbE1pnOd?table=tblRdpIVEQIh97Gs" target="_blank" style="color:#6b8cff;text-decoration:none;">查看飞书表格 &#8599;</a>
+  <br><br>
+  <button class="btn" onclick="location.reload()">再来一次</button>
+</div>
+</div></div>
+<div class="toast" id="toast"></div>
+<script>
+var QUESTIONS = {
+  frontend: ["请解释一下React的虚拟DOM是如何工作的？","你能说说CSS的盒模型是什么吗？","什么是闭包？请举一个实际应用的例子。","请解释一下Event Loop的机制。","前端性能优化有哪些常用的手段？"],
+  backend: ["请解释一下RESTful API的设计原则。","什么是数据库索引？它如何提高查询性能？","请解释一下什么是微服务架构。","如何设计一个高可用的系统？","什么是CAP定理？请简要说明。"],
+  general: ["请做一个简单的自我介绍。","你为什么想来我们公司？","请分享一个你解决过的技术难题。","你是如何处理工作中的压力的？","你未来三年的职业规划是什么？"]
+};
+
+var currentStep = 0;
+var questions = [];
+var interviewId = "";
+var mediaRecorder = null;
+var audioChunks = [];
+var isRecording = false;
+var timerInterval = null;
+var seconds = 0;
+
+function $(id) { return document.getElementById(id); }
+
+function showToast(msg) {
+  var el = $("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  setTimeout(function(){ el.classList.remove("show"); }, 3000);
+}
+
+function switchStep(id) {
+  var steps = document.querySelectorAll(".step");
+  for (var i = 0; i < steps.length; i++) steps[i].classList.remove("active");
+  $(id).classList.add("active");
+}
+
+function startInterview() {
+  var p = $("pos").value;
+  var n = $("name").value || "Anonymous";
+  questions = QUESTIONS[p] || QUESTIONS.general;
+  interviewId = crypto.randomUUID();
+  currentStep = 0;
+  switchStep("s2");
+  showQuestion();
+}
+
+function showQuestion() {
+  if (currentStep >= questions.length) {
+    switchStep("s3");
+    return;
+  }
+  $("qtext").textContent = questions[currentStep];
+  renderProgress();
+  resetRecorder();
+}
+
+function renderProgress() {
+  var container = $("dots");
+  container.innerHTML = "";
+  for (var i = 0; i < questions.length; i++) {
+    var dot = document.createElement("div");
+    dot.className = "dot";
+    if (i < currentStep) dot.classList.add("done");
+    if (i === currentStep) dot.classList.add("current");
+    container.appendChild(dot);
+  }
+}
+
+function toggleRec() {
+  if (isRecording) { stopRecording(); }
+  else { startRecording(); }
+}
+
+function startRecording() {
+  navigator.mediaDevices.getUserMedia({ audio: true })
+    .then(function(s) {
+      audioChunks = [];
+      mediaRecorder = new MediaRecorder(s, { mimeType: "audio/webm;codecs=opus" });
+      mediaRecorder.ondataavailable = function(e) {
+        if (e.data.size > 0) audioChunks.push(e.data);
+      };
+      mediaRecorder.onstop = function() {
+        s.getTracks().forEach(function(t){ t.stop(); });
+        $("status").textContent = "录音完成，点击提交";
+      };
+      mediaRecorder.start(250);
+      isRecording = true;
+      $("rbtn").classList.add("recording");
+      $("status").textContent = "正在录音...";
+      $("nextBtn").disabled = false;
+      seconds = 0;
+      updateTimer();
+      timerInterval = setInterval(function(){ seconds++; updateTimer(); }, 1000);
+    })
+    .catch(function(e) {
+      showToast("请允许麦克风权限");
+    });
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== "inactive") {
+    mediaRecorder.stop();
+  }
+  isRecording = false;
+  $("rbtn").classList.remove("recording");
+  clearInterval(timerInterval);
+}
+
+function resetRecorder() {
+  if (mediaRecorder && mediaRecorder.state !== "inactive") {
+    mediaRecorder.stop();
+  }
+  isRecording = false;
+  $("rbtn").classList.remove("recording");
+  clearInterval(timerInterval);
+  seconds = 0;
+  updateTimer();
+  audioChunks = [];
+  $("status").textContent = "点击录音";
+  $("nextBtn").disabled = true;
+}
+
+function updateTimer() {
+  var m = String(Math.floor(seconds / 60)).padStart(2, "0");
+  var s = String(seconds % 60).padStart(2, "0");
+  $("timer").textContent = m + ":" + s;
+}
+
+function submitAnswer() {
+  if (audioChunks.length === 0) {
+    showToast("请先录音");
+    return;
+  }
+  var blob = new Blob(audioChunks, { type: "audio/webm" });
+  if (blob.size < 200) {
+    showToast("录音太短");
+    return;
+  }
+  $("nextBtn").disabled = true;
+  $("status").innerHTML = "上传中...";
+
+  var fd = new FormData();
+  var fileName = "interview-" + interviewId + "-q" + (currentStep + 1) + ".webm";
+  fd.append("audio", blob, fileName);
+  fd.append("question", questions[currentStep]);
+  fd.append("interviewId", interviewId);
+  fd.append("questionOrder", String(currentStep + 1));
+  fd.append("totalQuestions", String(questions.length));
+  fd.append("candidateName", $("name").value || "Anonymous");
+  fd.append("position", $("pos").value);
+
+  fetch("/api/proxy", {
+    method: "POST",
+    body: fd
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      showToast("已保存到飞书!");
+      currentStep++;
+      showQuestion();
+    } else {
+      showToast("上传失败: " + (data.error || "未知错误"));
+      $("nextBtn").disabled = false;
+      $("status").textContent = "重试";
+    }
+  })
+  .catch(function(e) {
+    showToast("上传失败，请重试");
+    $("nextBtn").disabled = false;
+    $("status").textContent = "重试";
+  });
+}
+
+function endInterview() {
+  if (confirm("确定结束？")) {
+    if (isRecording) stopRecording();
+    switchStep("s3");
+  }
+}
+</script>
+</body>
+</html>

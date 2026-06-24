@@ -4,8 +4,4 @@ dist/
 *.log
 .dev.vars
 .env
-test-*.js
-test-*.mjs
 gen*.cjs
-static/
-functions/

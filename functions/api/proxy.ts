@@ -94,7 +94,8 @@ export async function onRequest(context) {
     }
     const fileToken = uploadData.data.file_token;
 
-    // Step 4: Add QA record
+    // Step 4: Add QA record - use Feishu drive URL
+    var fileUrl = "https://ywwlaii6ga7.feishu.cn/drive/medias/" + fileToken;
     const qaResp = await fetch("https://open.feishu.cn/open-apis/bitable/v1/apps/" + baseToken + "/tables/" + qaTableId + "/records", {
       method: "POST",
       headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
@@ -102,7 +103,7 @@ export async function onRequest(context) {
         "\u9762\u8bd5ID": interviewId,
         "\u9898\u76ee": question,
         "\u9898\u53f7": String(qOrder),
-        "\u5f55\u97f3": fileToken
+        "\u5f55\u97f3": fileUrl
       }})
     });
     const qaData = await qaResp.json();

@@ -14,15 +14,15 @@ h1{text-align:center;background:linear-gradient(90deg,#f7971e,#ffd200);-webkit-b
 .btn:hover{transform:translateY(-1px);}
 .btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
 .btn-danger{background:linear-gradient(90deg,#e74c3c,#c0392b);color:#fff;}
-.record-btn{width:80px;height:80px;border-radius:50%;border:3px solid #f7971e;background:rgba(247,151,30,0.1);cursor:pointer;margin:12px auto;display:flex;align-items:center;justify-content:center;transition:all .3s;}
-.record-btn:hover{border-color:#ffd200;background:rgba(247,151,30,0.2);}
-.record-btn.recording{border-color:#e74c3c;animation:pulse 1.2s infinite;}
-.record-btn.recording #ricon{background:#e74c3c;border-radius:50%;width:24px;height:24px;}
+.recbtn{width:80px;height:80px;border-radius:50%;border:3px solid #f7971e;background:rgba(247,151,30,0.1);cursor:pointer;margin:12px auto;display:flex;align-items:center;justify-content:center;transition:all .3s;}
+.recbtn:hover{border-color:#ffd200;background:rgba(247,151,30,0.2);}
+.recbtn.active{border-color:#e74c3c;animation:pulse 1.2s infinite;}
+.recbtn.active .ricon{background:#e74c3c;border-radius:50%;width:24px;height:24px;}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(231,76,60,0.4)}70%{box-shadow:0 0 0 20px rgba(231,76,60,0)}100%{box-shadow:0 0 0 0 rgba(231,76,60,0)}}
 .step{display:none;}.step.active{display:block;}
-.progress{display:flex;justify-content:center;gap:4px;margin:16px 0;}
+.dots{display:flex;justify-content:center;gap:4px;margin:16px 0;}
 .dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.15);}
-.dot.done{background:#27ae60;}.dot.current{background:#f7971e;}
+.dot.done{background:#27ae60;}.dot.cur{background:#f7971e;}
 .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#333;padding:12px 24px;border-radius:12px;z-index:999;display:none;}
 .toast.show{display:block;}
 select,input{width:100%;padding:12px;border-radius:8px;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2);margin:6px 0;font-size:15px;}
@@ -39,18 +39,18 @@ select option{background:#302b63;color:#fff;}
 <div id="s1" class="step active">
   <select id="pos"><option value="frontend">前端开发</option><option value="backend">后端开发</option><option value="general" selected>通用面试</option></select>
   <input type="text" id="name" value="Anonymous" placeholder="姓名">
-  <button class="btn" onclick="start()">开始面试</button>
+  <button class="btn" id="startBtn" onclick="doStart()">开始面试</button>
 </div>
 <div id="s2" class="step">
-  <div class="progress" id="dots"></div>
+  <div class="dots" id="dots"></div>
   <div class="qbox"><p id="qtext">加载中...</p></div>
   <div style="text-align:center;">
-    <div class="record-btn" id="rbtn" onclick="rec()"><div id="ricon" style="width:32px;height:32px;background:#f7971e;border-radius:4px;"></div></div>
+    <div class="recbtn" id="rbtn" onclick="doRecord()"><div class="ricon" style="width:32px;height:32px;background:#f7971e;border-radius:4px;"></div></div>
     <div id="timer">00:00</div>
     <div class="st" id="status">点击录音</div>
   </div>
-  <button class="btn" id="nb" onclick="sub()" disabled>提交录音</button>
-  <button class="btn btn-danger" onclick="end()">结束</button>
+  <button class="btn" id="nb" onclick="doSubmit()" disabled>提交录音</button>
+  <button class="btn btn-danger" onclick="doEnd()">结束</button>
 </div>
 <div id="s3" class="step" style="text-align:center;padding:20px;">
   <div style="font-size:3em;">&#127881;</div>
@@ -62,78 +62,22 @@ select option{background:#302b63;color:#fff;}
 </div></div>
 <div class="toast" id="toast"></div>
 <script>
-// === Feishu credentials (embedded in frontend - OK to expose) ===
-var AID = "cli_aab083cfebf8dce7";
-var ASEC = "vkEtRGulqjNoyFnXuQSnjbzoKxqpcKl8";
-var BT = "E9dCbLvXtawJtNsrhticbE1pnOd";
-var TI = "tbl0G4d8VNOGS15z";
-var TQ = "tblRdpIVEQIh97Gs";
-
-var QUESTIONS = {
-  frontend: ["请解释React虚拟DOM如何工作？","CSS盒模型是什么？","什么是闭包？举例。","Event Loop机制？","前端性能优化手段？"],
-  backend: ["RESTful API设计原则？","数据库索引如何提高性能？","微服务架构是什么？","如何设计高可用系统？","CAP定理是什么？"],
-  general: ["自我介绍。","为什么来我们公司？","分享解决过的技术难题。","如何处理工作压力？","未来三年职业规划？"]
-};
-
-var st=0,qs=[],iid="",rec=null,chunks=[],isRec=false,ti=null,sec=0;
+var AID="cli_aab083cfebf8dce7",ASEC="vkEtRGulqjNoyFnXuQSnjbzoKxqpcKl8",BT="E9dCbLvXtawJtNsrhticbE1pnOd",TI="tbl0G4d8VNOGS15z",TQ="tblRdpIVEQIh97Gs";
+var Q={frontend:["请解释React虚拟DOM如何工作？","CSS盒模型是什么？","什么是闭包？举例。","Event Loop机制？","前端性能优化手段？"],backend:["RESTful API设计原则？","数据库索引如何提高性能？","微服务架构是什么？","如何设计高可用系统？","CAP定理是什么？"],general:["自我介绍。","为什么来我们公司？","分享解决过的技术难题。","如何处理工作压力？","未来三年职业规划？"]};
+var cur=0,qs=[],iid="",mr=null,buf=[],on=false,ti=null,sec=0;
 function $(i){return document.getElementById(i)}
-function tm(m){var e=$("toast");e.textContent=m;e.classList.add("show");setTimeout(function(){e.classList.remove("show")},2500)}
-function sw(id){var ss=document.querySelectorAll(".step");for(var i=0;i<ss.length;i++)ss[i].classList.remove("active");$(id).classList.add("active")}
-function start(){
-  qs=QUESTIONS[$("pos").value]||QUESTIONS.general;
-  iid=crypto.randomUUID();st=0;sw("s2");showQ();
-}
-function showQ(){
-  if(st>=qs.length){sw("s3");return}
-  $("qtext").textContent=qs[st];renderDots();rst();
-}
-function renderDots(){
-  var e=$("dots");e.innerHTML="";
-  for(var i=0;i<qs.length;i++){var d=document.createElement("div");d.className="dot";if(i<st)d.classList.add("done");if(i===st)d.classList.add("current");e.appendChild(d)}
-}
-function rec(){if(isRec){stp()}else{gorec()}}
-function gorec(){
-  navigator.mediaDevices.getUserMedia({audio:true}).then(function(s){
-    chunks=[];rec=new MediaRecorder(s,{mimeType:"audio/webm;codecs=opus"});
-    rec.ondataavailable=function(e){if(e.data.size>0)chunks.push(e.data)};
-    rec.onstop=function(){s.getTracks().forEach(function(t){t.stop()});$("nb").disabled=false};
-    rec.start(250);isRec=true;$("rbtn").classList.add("recording");$("status").textContent="录音中...";
-    sec=0;updT();ti=setInterval(function(){sec++;updT()},1000);
-  }).catch(function(){tm("请允许麦克风")});
-}
-function stp(){
-  if(rec&&rec.state!=="inactive")rec.stop();
-  isRec=false;$("rbtn").classList.remove("recording");clearInterval(ti);$("status").textContent="已停止";
-}
-function rst(){
-  if(rec&&rec.state!=="inactive")rec.stop();
-  isRec=false;$("rbtn").classList.remove("recording");clearInterval(ti);sec=0;updT();chunks=[];$("status").textContent="点击录音";$("nb").disabled=true;
-}
-function updT(){var m=String(Math.floor(sec/60)).padStart(2,"0");var s=String(sec%60).padStart(2,"0");$("timer").textContent=m+":"+s}
-function sub(){
-  if(chunks.length===0){tm("请先录音");return}
-  var blob=new Blob(chunks,{type:"audio/webm"});
-  if(blob.size<200){tm("录音太短");return}
-  $("nb").disabled=true;$("status").textContent="上传中...";
-  var fd=new FormData();
-  fd.append("audio",blob,"q"+(st+1)+".webm");
-  fd.append("question",qs[st]);
-  fd.append("interviewId",iid);
-  fd.append("questionOrder",String(st+1));
-  fd.append("totalQuestions",String(qs.length));
-  fd.append("candidateName",$("name").value||"Anonymous");
-  fd.append("position",$("pos").value);
-  fd.append("appId",AID);
-  fd.append("appSecret",ASEC);
-  fd.append("baseToken",BT);
-  fd.append("tableId",TI);
-  fd.append("qaTableId",TQ);
-  fetch("/api/proxy",{method:"POST",body:fd}).then(function(r){return r.json()}).then(function(d){
-    if(d.success){tm("已保存!");st++;showQ()}
-    else{tm("失败: "+d.error);$("nb").disabled=false;$("status").textContent="重试"}
-  }).catch(function(){tm("网络错误");$("nb").disabled=false;$("status").textContent="重试"});
-}
-function end(){if(confirm("确定结束？")){if(isRec)stp();sw("s3")}}
+function tip(m){var e=$("toast");e.textContent=m;e.classList.add("show");setTimeout(function(){e.classList.remove("show")},2500)}
+function sw(id){var a=document.querySelectorAll(".step");for(var i=0;i<a.length;i++)a[i].classList.remove("active");$(id).classList.add("active")}
+function doStart(){qs=Q[$("pos").value]||Q.general;iid=crypto.randomUUID();cur=0;sw("s2");showQ()}
+function showQ(){if(cur>=qs.length){sw("s3");return}$("qtext").textContent=qs[cur];rd();resetR()}
+function rd(){var e=$("dots");e.innerHTML="";for(var i=0;i<qs.length;i++){var d=document.createElement("div");d.className="dot";if(i<cur)d.classList.add("done");if(i===cur)d.classList.add("cur");e.appendChild(d)}}
+function doRecord(){if(on){stopR()}else{startR()}}
+function startR(){navigator.mediaDevices.getUserMedia({audio:true}).then(function(s){buf=[];mr=new MediaRecorder(s,{mimeType:"audio/webm;codecs=opus"});mr.ondataavailable=function(e){if(e.data.size>0)buf.push(e.data)};mr.onstop=function(){s.getTracks().forEach(function(t){t.stop()});$("nb").disabled=false};mr.start(250);on=true;$("rbtn").classList.add("active");$("status").textContent="录音中...";sec=0;upd();ti=setInterval(function(){sec++;upd()},1000)}).catch(function(){tip("请允许麦克风")})}
+function stopR(){if(mr&&mr.state!=="inactive")mr.stop();on=false;$("rbtn").classList.remove("active");clearInterval(ti);$("status").textContent="已停止"}
+function resetR(){if(mr&&mr.state!=="inactive")mr.stop();on=false;$("rbtn").classList.remove("active");clearInterval(ti);sec=0;upd();buf=[];$("status").textContent="点击录音";$("nb").disabled=true}
+function upd(){var m=String(Math.floor(sec/60)).padStart(2,"0");var s=String(sec%60).padStart(2,"0");$("timer").textContent=m+":"+s}
+function doSubmit(){if(buf.length===0){tip("请先录音");return}var b=new Blob(buf,{type:"audio/webm"});if(b.size<200){tip("录音太短");return}$("nb").disabled=true;$("status").textContent="上传中...";var fd=new FormData();fd.append("audio",b,"q"+(cur+1)+".webm");fd.append("question",qs[cur]);fd.append("interviewId",iid);fd.append("questionOrder",String(cur+1));fd.append("totalQuestions",String(qs.length));fd.append("candidateName",$("name").value||"Anonymous");fd.append("position",$("pos").value);fd.append("appId",AID);fd.append("appSecret",ASEC);fd.append("baseToken",BT);fd.append("tableId",TI);fd.append("qaTableId",TQ);fetch("/api/proxy",{method:"POST",body:fd}).then(function(r){return r.json()}).then(function(d){if(d.success){tip("已保存!");cur++;showQ()}else{tip("失败: "+d.error);$("nb").disabled=false;$("status").textContent="重试"}}).catch(function(){tip("网络错误");$("nb").disabled=false;$("status").textContent="重试"})}
+function doEnd(){if(confirm("确定结束？")){if(on)stopR();sw("s3")}}
 </script>
 </body>
 </html>
